@@ -1,13 +1,20 @@
 const express = require("express");
 const cors = require("cors");
-const sql = require("mssql/msnodesqlv8");
+const sql = require("mssql");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const config = {
-    connectionString: "Driver={ODBC Driver 17 for SQL Server};Server=localhost;Database=mapa;Trusted_Connection=yes;"
+    user: "mapaUser1",
+    password: "1234567",
+    server: "192.168.0.16", // tu IP si es local
+    database: "mapa",
+    options: {
+        encrypt: false,
+        trustServerCertificate: true
+    }
 };
 
 async function iniciarServidor() {
@@ -15,21 +22,22 @@ async function iniciarServidor() {
         const pool = await sql.connect(config);
         console.log("CONECTADO A SQL SERVER");
 
-        // Ruta de prueba
         app.get("/", (req, res) => {
-            res.send("API funcionando");
+            res.send("API funcionando en la nube");
         });
 
-        // Guardar ubicación
         app.post("/ubicacion", async (req, res) => {
             try {
                 const { lat, lon, hora } = req.body;
 
-                console.log("RECIBIDO:", lat, lon, hora);
-                await pool.request().query(`
-                    INSERT INTO ubicacione (lat, lon, hora)
-                    VALUES (${lat}, ${lon}, ${hora})
-                `);
+                await pool.request()
+                    .input("lat", sql.Float, lat)
+                    .input("lon", sql.Float, lon)
+                    .input("hora", sql.BigInt, hora)
+                    .query(`
+                        INSERT INTO ubicacione (lat, lon, hora)
+                        VALUES (@lat, @lon, @hora)
+                    `);
 
                 console.log("GUARDADO EN SQL");
                 res.send("OK");
@@ -40,7 +48,6 @@ async function iniciarServidor() {
             }
         });
 
-        // Obtener última ubicación
         app.get("/ubicacion", async (req, res) => {
             try {
                 const result = await pool.request().query(`
@@ -55,8 +62,9 @@ async function iniciarServidor() {
             }
         });
 
-        app.listen(3000, "0.0.0.0", () => {
-            console.log("Servidor en http://192.168.0.16:3000");
+        const PORT = process.env.PORT || 3000;
+        app.listen(PORT, () => {
+            console.log("Servidor en puerto", PORT);
         });
 
     } catch (err) {
