@@ -27,6 +27,7 @@
 
   // Esperar que cargue todo
   window.addEventListener("load", function () {
+  
 
     // MAPBOX
     mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
@@ -41,6 +42,20 @@
     const marker = new mapboxgl.Marker()
       .setLngLat([-58.0, -34.0])
       .addTo(map);
+    
+      if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(function(position) {
+  
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+  
+      marker.setLngLat([lon, lat]);
+      map.setCenter([lon, lat]);
+  
+    }, function(error) {
+      console.log("Error obteniendo ubicación:", error);
+    });
+  }
 
     // SUPABASE
     const supabaseUrl = "https://qlyndvihlqiirztnqxim.supabase.co";
@@ -72,3 +87,4 @@
 
 </body>
 </html>
+
