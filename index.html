@@ -4,10 +4,8 @@
   <meta charset="UTF-8">
   <title>Mapa en tiempo real</title>
 
-  <link href="https://unpkg.com/mapbox-gl@2.20.1/dist/mapbox-gl.css" rel="stylesheet" />
-  <script src="https://unpkg.com/mapbox-gl@2.20.1/dist/mapbox-gl.js"></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- MAPBOX CSS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
 
   <style>
     body, html { margin: 0; padding: 0; height: 100%; }
@@ -16,19 +14,26 @@
 </head>
 
 <body>
+
 <div id="map"></div>
+
+<!-- MAPBOX JS (ANTES de usarlo) -->
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+<!-- SUPABASE -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 
-  // ESPERAR QUE TODO CARGUE
-  window.onload = function() {
+  // Esperar que cargue todo
+  window.addEventListener("load", function () {
 
     // MAPBOX
-    mapboxgl.accessToken = 'pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA';
+    mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
     const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/mapbox/streets-v12',
+      container: "map",
+      style: "mapbox://styles/mapbox/streets-v12",
       center: [-58.0, -34.0],
       zoom: 15
     });
@@ -37,19 +42,17 @@
       .setLngLat([-58.0, -34.0])
       .addTo(map);
 
-
     // SUPABASE
-    const supabaseUrl = 'https://qlyndvihlqiirztnqxim.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20';
+    const supabaseUrl = "https://qlyndvihlqiirztnqxim.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20";
 
     const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-
     async function actualizarMapa() {
-      const { data, error } = await supabaseClient
-        .from('ubicaciones')
-        .select('*')
-        .order('id', { ascending: false })
+      const { data } = await supabaseClient
+        .from("ubicaciones")
+        .select("*")
+        .order("id", { ascending: false })
         .limit(1);
 
       if (data && data.length > 0) {
@@ -61,11 +64,11 @@
       }
     }
 
-    // actualizar cada 2 segundos
     setInterval(actualizarMapa, 2000);
 
-  };
+  });
 
 </script>
+
 </body>
 </html>
