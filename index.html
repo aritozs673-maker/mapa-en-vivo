@@ -4,11 +4,9 @@
   <meta charset="UTF-8">
   <title>Mapa en tiempo real</title>
 
-  <!-- Mapbox -->
-  <script src="https://unpkg.com/mapbox-gl@2.20.1/dist/mapbox-gl.js"></script>
   <link href="https://unpkg.com/mapbox-gl@2.20.1/dist/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/mapbox-gl@2.20.1/dist/mapbox-gl.js"></script>
 
-  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
@@ -21,78 +19,52 @@
 <div id="map"></div>
 
 <script>
-  // ===============================
-  // MAPBOX
-  // ===============================
 
-  mapboxgl.accessToken = 'pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA';
+  // ESPERAR QUE TODO CARGUE
+  window.onload = function() {
 
-  const map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/streets-v12',
-    center: [-58.0, -34.0],
-    zoom: 15
-  });
+    // MAPBOX
+    mapboxgl.accessToken = 'pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA';
 
-  const marker = new mapboxgl.Marker()
-    .setLngLat([-58.0, -34.0])
-    .addTo(map);
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [-58.0, -34.0],
+      zoom: 15
+    });
 
-  // ===============================
-  // SUPABASE (VERSIÓN CORRECTA V2)
-  // ===============================
+    const marker = new mapboxgl.Marker()
+      .setLngLat([-58.0, -34.0])
+      .addTo(map);
 
-  const supabaseUrl = 'https://qlyndvihlqiirztnqxim.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20';
 
-  const { createClient } = supabase;
-  const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    // SUPABASE
+    const supabaseUrl = 'https://qlyndvihlqiirztnqxim.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20';
 
-  // ===============================
-  // CARGAR ÚLTIMA UBICACIÓN
-  // ===============================
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-  async function cargarUltimaUbicacion() {
-    const { data, error } = await supabaseClient
-      .from('ubicaciones')
-      .select('*')
-      .order('id', { ascending: false })
-      .limit(1);
 
-    if (data && data.length > 0) {
-      const lat = data[0].lat;
-      const lon = data[0].lon;
+    async function actualizarMapa() {
+      const { data, error } = await supabaseClient
+        .from('ubicaciones')
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(1);
 
-      marker.setLngLat([lon, lat]);
-      map.setCenter([lon, lat]);
-    }
-  }
-
-  // Esperar que el mapa cargue
-  map.on('load', () => {
-    cargarUltimaUbicacion();
-  });
-
-  // ===============================
-  // REALTIME
-  // ===============================
-
-  supabaseClient
-    .channel('realtime-ubicaciones')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'ubicaciones' },
-      (payload) => {
-        const lat = payload.new.lat;
-        const lon = payload.new.lon;
-
-        console.log("Nueva ubicación:", lat, lon);
+      if (data && data.length > 0) {
+        const lat = data[0].lat;
+        const lon = data[0].lon;
 
         marker.setLngLat([lon, lat]);
         map.setCenter([lon, lat]);
       }
-    )
-    .subscribe();
+    }
+
+    // actualizar cada 2 segundos
+    setInterval(actualizarMapa, 2000);
+
+  };
 
 </script>
 </body>
