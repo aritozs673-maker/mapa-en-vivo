@@ -31,20 +31,44 @@
   const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20';
   const supabase = Supabase.createClient(supabaseUrl, supabaseKey);
 
-  supabase
-    .channel('realtime')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'ubicaciones' },
-      (payload) => {
-        const lat = payload.new.lat;
-        const lon = payload.new.lon;
-        console.log('Nueva ubicación:', lat, lon);
-        marker.setLngLat([lon, lat]);
-        map.setCenter([lon, lat]);
-      }
-    )
-    .subscribe();
+// -------- CARGAR ÚLTIMA UBICACIÓN AL INICIAR --------
+async function cargarUltimaUbicacion() {
+  const { data, error } = await supabase
+    .from('ubicaciones')
+    .select('*')
+    .order('id', { ascending: false })
+    .limit(1);
+
+  if (data && data.length > 0) {
+    const lat = data[0].lat;
+    const lon = data[0].lon;
+
+    marker.setLngLat([lon, lat]);
+    map.setCenter([lon, lat]);
+  }
+}
+
+cargarUltimaUbicacion();
+
+
+// -------- ESCUCHAR NUEVOS INSERT EN TIEMPO REAL --------
+supabase
+  .channel('realtime-ubicaciones')
+  .on(
+    'postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'ubicaciones' },
+    (payload) => {
+      const lat = payload.new.lat;
+      const lon = payload.new.lon;
+
+      console.log("Nueva ubicación:", lat, lon);
+
+      marker.setLngLat([lon, lat]);
+      map.setCenter([lon, lat]);
+    }
+  )
+  .subscribe();
 </script>
 </body>
 </html>
+
