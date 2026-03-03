@@ -11,10 +11,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "msnodesqlv8": "^5.1.5",
-    "mssql": "^12.2.0"
-  }
+"dependencies": {
+  "cors": "^2.8.6",
+  "express": "^5.2.1",
+  "mssql": "^12.2.0"
+}
 }
