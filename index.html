@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Mapa en vivo</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+<style>
+body { margin: 0; padding: 0; }
+#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
+
+const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [-68.20959, -16.52698],
+    zoom: 15
+});
+
+const marker = new mapboxgl.Marker().setLngLat([-68.20959, -16.52698]).addTo(map);
+
+const supabaseClient = supabase.createClient(
+  "https://qlyndvihlqiirztnqxim.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
+);
+
+async function actualizar() {
+
+    const { data, error } = await supabaseClient
+        .from("ubicaciones")
+        .select("*")
+        .order("hora", { ascending: false })
+        .limit(1);
+
+    if (data && data.length > 0) {
+
+        const lat = data[0].lat;
+        const lon = data[0].lon;
+
+        marker.setLngLat([lon, lat]);
+        map.setCenter([lon, lat]);
+    }
+}
+
+setInterval(actualizar, 2000);
+
+</script>
+
+</body>
+</html>
