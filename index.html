@@ -43,20 +43,40 @@
       .setLngLat([-58.0, -34.0])
       .addTo(map);
     
-      if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(function(position) {
-  
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
-  
-      marker.setLngLat([lon, lat]);
-      map.setCenter([lon, lat]);
-  
-    }, function(error) {
-      console.log("Error obteniendo ubicación:", error);
-    });
-  }
+   // =============================
+// OBTENER UBICACIÓN Y GUARDAR EN SUPABASE
+// =============================
 
+if (navigator.geolocation) {
+
+  navigator.geolocation.watchPosition(async function(position) {
+
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    const hora = new Date().toLocaleTimeString();
+
+    // Mover marcador en tu mapa
+    marker.setLngLat([lon, lat]);
+    map.setCenter([lon, lat]);
+
+    // GUARDAR EN SUPABASE
+    const { error } = await supabaseClient
+      .from("ubicaciones")
+      .insert([
+        { lat: lat, lon: lon, hora: hora }
+      ]);
+
+    if (error) {
+      console.log("Error guardando:", error);
+    } else {
+      console.log("Ubicación guardada:", lat, lon);
+    }
+
+  }, function(error) {
+    console.log("Error GPS:", error);
+  });
+
+}
     // SUPABASE
     const supabaseUrl = "https://qlyndvihlqiirztnqxim.supabase.co";
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20";
@@ -87,4 +107,5 @@
 
 </body>
 </html>
+
 
