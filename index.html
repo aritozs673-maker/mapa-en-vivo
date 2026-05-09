@@ -2,25 +2,26 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Geocercas</title>
+<title>Mapa en tiempo real</title>
 
+<!-- MAPBOX -->
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
-<link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.css" rel="stylesheet" />
 
 <style>
 body, html {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: Arial, sans-serif;
 }
 
 #map {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   width: 100%;
-  height: 100%;
 }
 
-/* 🔥 CONTENEDOR BOTONES */
+/* 🔥 BOTONES */
 .controls {
   position: absolute;
   top: 15px;
@@ -28,51 +29,17 @@ body, html {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
-/* 🔥 BOTONES BONITOS */
-.btn {
-  padding: 12px 18px;
-  border: none;
+button {
+  padding: 12px;
+  margin: 5px;
   border-radius: 10px;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: 0.3s;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-}
-
-/* 🎨 Dibujar */
-.btn-draw {
+  border: none;
   background: #007bff;
   color: white;
-}
-
-.btn-draw:hover {
-  background: #0056b3;
-}
-
-/* 🎨 Guardar */
-.btn-save {
-  background: #28a745;
-  color: white;
-}
-
-.btn-save:hover {
-  background: #1e7e34;
-}
-
-/* 🎨 mensaje */
-#estado {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  background: white;
-  padding: 10px 15px;
-  border-radius: 10px;
   font-weight: bold;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  cursor: pointer;
 }
 </style>
 </head>
@@ -82,19 +49,18 @@ body, html {
 <div id="map"></div>
 
 <div class="controls">
-  <button class="btn btn-draw" onclick="activarDibujo()">✏️ Dibujar geocerca</button>
-  <button class="btn btn-save" onclick="guardarGeocerca()">💾 Guardar</button>
+  <button onclick="guardarUbicacion()">📍 Guardar ubicación</button>
 </div>
 
-<div id="estado">Esperando acción...</div>
-
+<!-- MAPBOX JS -->
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
-<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.js"></script>
+
+<!-- 🔥 SUPABASE -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 
-// 🔥 TOKEN MAPBOX
+// 🔥 TU TOKEN MAPBOX
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
 // 🔥 SUPABASE
@@ -102,55 +68,51 @@ const supabaseUrl = "https://qlyndvihlqiirztnqxim.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20";
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-// 🔥 MAPA
+// 🔥 CREAR MAPA
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/streets-v12",
   center: [-68.2096, -16.5270],
-  zoom: 16
+  zoom: 15
 });
 
-// 🔥 DIBUJO
-const draw = new MapboxDraw({
-  displayControlsDefault: false,
-  controls: {
-    polygon: true,
-    trash: true
-  }
+// 🔥 MARCADOR
+let marker = new mapboxgl.Marker().addTo(map);
+
+// 🔥 UBICACIÓN EN TIEMPO REAL
+navigator.geolocation.watchPosition((pos) => {
+
+  const lat = pos.coords.latitude;
+  const lon = pos.coords.longitude;
+
+  marker.setLngLat([lon, lat]);
+  map.setCenter([lon, lat]);
+
 });
 
-map.addControl(draw);
+// 🔥 GUARDAR EN SUPABASE
+async function guardarUbicacion() {
 
-// 🔥 ACTIVAR DIBUJO
-function activarDibujo() {
-  draw.changeMode("draw_polygon");
-  document.getElementById("estado").innerText = "✏️ Dibujando geocerca...";
-}
+  navigator.geolocation.getCurrentPosition(async (pos) => {
 
-// 🔥 GUARDAR GEOCERCA
-async function guardarGeocerca() {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
 
-  const data = draw.getAll();
+    const { error } = await supabase
+      .from("ubicaciones")
+      .insert([
+        { lat: lat, lon: lon }
+      ]);
 
-  if (data.features.length === 0) {
-    alert("Dibuja primero la geocerca");
-    return;
-  }
+    if (error) {
+      console.log("❌ ERROR:", error);
+      alert("Error guardando");
+    } else {
+      alert("✅ Guardado en Supabase");
+    }
 
-  const poligono = data.features[0].geometry.coordinates;
+  });
 
-  const { error } = await supabase
-    .from("geocercas")
-    .insert([
-      { polygon: JSON.stringify(poligono) }
-    ]);
-
-  if (error) {
-    console.log(error);
-    alert("Error al guardar");
-  } else {
-    document.getElementById("estado").innerText = "✅ Geocerca guardada";
-  }
 }
 
 </script>
