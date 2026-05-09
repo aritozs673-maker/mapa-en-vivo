@@ -1,111 +1,84 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Mapa en tiempo real</title>
+<meta charset="UTF-8">
+<title>Mapa con Geocerca</title>
 
-  <!-- MAPBOX CSS -->
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 
-  <style>
-    body, html { margin: 0; padding: 0; height: 100%; }
-    #map { width: 100%; height: 100%; }
-  </style>
+<!-- DIBUJAR -->
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.css" rel="stylesheet"/>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body, html { margin:0; height:100%; }
+#map { width:100%; height:100%; }
+button {
+  position:absolute;
+  top:10px;
+  left:10px;
+  z-index:1;
+}
+</style>
 </head>
 
 <body>
 
+<button onclick="guardarGeocerca()">Guardar Geocerca</button>
 <div id="map"></div>
-
-<!-- MAPBOX JS (ANTES de usarlo) -->
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-
-<!-- SUPABASE -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 
-  // Esperar que cargue todo
-  window.addEventListener("load", function () {
-  
+mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
-    // MAPBOX
-    mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
+const map = new mapboxgl.Map({
+  container: "map",
+  style: "mapbox://styles/mapbox/streets-v12",
+  center: [-68.2096, -16.5270],
+  zoom: 16
+});
 
-    const map = new mapboxgl.Map({
-      container: "map",
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: [-58.0, -34.0],
-      zoom: 15
-    });
+// 🔥 herramienta de dibujo
+const draw = new MapboxDraw({
+  displayControlsDefault: false,
+  controls: { polygon: true, trash: true }
+});
+map.addControl(draw);
 
-    const marker = new mapboxgl.Marker()
-      .setLngLat([-58.0, -34.0])
-      .addTo(map);
-    
-   // =============================
-// OBTENER UBICACIÓN Y GUARDAR EN SUPABASE
-// =============================
+// SUPABASE
+const supabase = window.supabase.createClient(
+  "https://qlyndvihlqiirztnqxim.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
+);
 
-if (navigator.geolocation) {
+// 🔥 guardar geocerca
+async function guardarGeocerca() {
+  const data = draw.getAll();
 
-  navigator.geolocation.watchPosition(async function(position) {
+  if (data.features.length === 0) {
+    alert("Dibuja una zona primero");
+    return;
+  }
 
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-    const hora = new Date().toLocaleTimeString();
+  const coords = data.features[0].geometry.coordinates;
 
-    // Mover marcador en tu mapa
-    marker.setLngLat([lon, lat]);
-    map.setCenter([lon, lat]);
+  const { error } = await supabase
+    .from("geocercas")
+    .insert([
+      { nombre: "zona1", coordenadas: coords }
+    ]);
 
-    // GUARDAR EN SUPABASE
-    const { error } = await supabaseClient
-      .from("ubicaciones")
-      .insert([
-        { lat: lat, lon: lon, hora: hora }
-      ]);
-
-    if (error) {
-      console.log("Error guardando:", error);
-    } else {
-      console.log("Ubicación guardada:", lat, lon);
-    }
-
-  }, function(error) {
-    console.log("Error GPS:", error);
-  });
-
+  if (error) {
+    console.log(error);
+  } else {
+    alert("Geocerca guardada");
+  }
 }
-    // SUPABASE
-    const supabaseUrl = "https://qlyndvihlqiirztnqxim.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20";
-
-    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-    async function actualizarMapa() {
-      const { data } = await supabaseClient
-        .from("ubicaciones")
-        .select("*")
-        .order("id", { ascending: false })
-        .limit(1);
-
-      if (data && data.length > 0) {
-        const lat = data[0].lat;
-        const lon = data[0].lon;
-
-        marker.setLngLat([lon, lat]);
-        map.setCenter([lon, lat]);
-      }
-    }
-
-    setInterval(actualizarMapa, 2000);
-
-  });
 
 </script>
 
 </body>
 </html>
-
-
