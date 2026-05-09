@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Mapa en tiempo real</title>
 
-<!-- MAPBOX -->
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
 
 <style>
@@ -21,14 +20,11 @@ body, html {
   width: 100%;
 }
 
-/* 🔥 BOTONES */
 .controls {
   position: absolute;
   top: 15px;
   left: 15px;
   z-index: 10;
-  display: flex;
-  flex-direction: column;
 }
 
 button {
@@ -52,23 +48,20 @@ button {
   <button onclick="guardarUbicacion()">📍 Guardar ubicación</button>
 </div>
 
-<!-- MAPBOX JS -->
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
-
-<!-- 🔥 SUPABASE -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 
-// 🔥 TU TOKEN MAPBOX
+// 🔥 1. PON TU TOKEN REAL AQUÍ (OBLIGATORIO)
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
-// 🔥 SUPABASE
+// 🔥 2. SUPABASE
 const supabaseUrl = "https://qlyndvihlqiirztnqxim.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20";
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-// 🔥 CREAR MAPA
+// 🔥 3. CREAR MAPA
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/streets-v12",
@@ -76,21 +69,33 @@ const map = new mapboxgl.Map({
   zoom: 15
 });
 
-// 🔥 MARCADOR
+// 🔥 4. MARCADOR
 let marker = new mapboxgl.Marker().addTo(map);
 
-// 🔥 UBICACIÓN EN TIEMPO REAL
-navigator.geolocation.watchPosition((pos) => {
+// 🔥 5. UBICACIÓN EN TIEMPO REAL
+navigator.geolocation.watchPosition(
 
-  const lat = pos.coords.latitude;
-  const lon = pos.coords.longitude;
+  (pos) => {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
 
-  marker.setLngLat([lon, lat]);
-  map.setCenter([lon, lat]);
+    marker.setLngLat([lon, lat]);
+    map.setCenter([lon, lat]);
 
-});
+    console.log("📍 Ubicación:", lat, lon);
+  },
 
-// 🔥 GUARDAR EN SUPABASE
+  (error) => {
+    console.log("❌ ERROR GPS:", error);
+    alert("⚠️ Activa la ubicación y permite el GPS");
+  },
+
+  {
+    enableHighAccuracy: true
+  }
+);
+
+// 🔥 6. GUARDAR EN SUPABASE
 async function guardarUbicacion() {
 
   navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -106,9 +111,9 @@ async function guardarUbicacion() {
 
     if (error) {
       console.log("❌ ERROR:", error);
-      alert("Error guardando");
+      alert("Error guardando en Supabase");
     } else {
-      alert("✅ Guardado en Supabase");
+      alert("✅ Ubicación guardada");
     }
 
   });
