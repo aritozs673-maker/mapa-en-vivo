@@ -2,40 +2,36 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Mapa en tiempo real</title>
+<title>Geocercas</title>
 
-<link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet"/>
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+
+<link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.css" rel="stylesheet"/>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body, html {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+body,html{margin:0;height:100%}
+#map{position:absolute;top:0;bottom:0;width:100%}
+
+.controls{
+ position:absolute;
+ top:20px;
+ left:20px;
+ z-index:10;
 }
 
-#map {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 100%;
-}
-
-.controls {
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  z-index: 10;
-}
-
-button {
-  padding: 12px;
-  margin: 5px;
-  border-radius: 10px;
-  border: none;
-  background: #007bff;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
+button{
+ background:#7b1e3a;
+ color:white;
+ border:none;
+ padding:12px;
+ border-radius:10px;
+ margin:5px;
+ font-weight:bold;
+ cursor:pointer;
 }
 </style>
 </head>
@@ -45,82 +41,62 @@ button {
 <div id="map"></div>
 
 <div class="controls">
-  <button onclick="guardarUbicacion()">📍 Guardar ubicación</button>
+  <button onclick="guardar()">💾 Guardar Geocerca</button>
 </div>
-
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 
-// 🔥 1. PON TU TOKEN REAL AQUÍ (OBLIGATORIO)
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
-// 🔥 2. SUPABASE
-const supabaseUrl = "https://qlyndvihlqiirztnqxim.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20";
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-// 🔥 3. CREAR MAPA
-const map = new mapboxgl.Map({
-  container: "map",
-  style: "mapbox://styles/mapbox/streets-v12",
-  center: [-68.2096, -16.5270],
-  zoom: 15
-});
-
-// 🔥 4. MARCADOR
-let marker = new mapboxgl.Marker().addTo(map);
-
-// 🔥 5. UBICACIÓN EN TIEMPO REAL
-navigator.geolocation.watchPosition(
-
-  (pos) => {
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
-
-    marker.setLngLat([lon, lat]);
-    map.setCenter([lon, lat]);
-
-    console.log("📍 Ubicación:", lat, lon);
-  },
-
-  (error) => {
-    console.log("❌ ERROR GPS:", error);
-    alert("⚠️ Activa la ubicación y permite el GPS");
-  },
-
-  {
-    enableHighAccuracy: true
-  }
+const supabase = window.supabase.createClient(
+  "https://qlyndvihlqiirztnqxim.supabase.co",
+  "[8:56, 7/5/2026] .: Hacer le brazo de puppet
+[20:27, 7/5/2026] .: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
-// 🔥 6. GUARDAR EN SUPABASE
-async function guardarUbicacion() {
+const map = new mapboxgl.Map({
+ container:'map',
+ style:'mapbox://styles/mapbox/streets-v12',
+ center:[-68.2096,-16.5270],
+ zoom:15
+});
 
-  navigator.geolocation.getCurrentPosition(async (pos) => {
+const draw = new MapboxDraw({
+ displayControlsDefault:false,
+ controls:{polygon:true,trash:true}
+});
 
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
+map.addControl(draw);
 
-    const { error } = await supabase
-      .from("ubicaciones")
-      .insert([
-        { lat: lat, lon: lon }
-      ]);
+async function guardar(){
 
-    if (error) {
-      console.log("❌ ERROR:", error);
-      alert("Error guardando en Supabase");
-    } else {
-      alert("✅ Ubicación guardada");
-    }
+ const data = draw.getAll();
 
-  });
+ if(data.features.length === 0){
+   alert("Dibuja una geocerca");
+   return;
+ }
+
+ const coords = data.features[0].geometry.coordinates;
+
+ const { error } = await supabase
+   .from("geocercas")
+   .insert([
+     {
+       nombre:"zona",
+       coordenadas:coords
+     }
+   ]);
+
+ if(error){
+   alert("Error guardando");
+   console.log(error);
+ }else{
+   alert("✅ Geocerca guardada");
+ }
 
 }
 
 </script>
-
 </body>
 </html>
