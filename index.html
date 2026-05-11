@@ -2,14 +2,36 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>TEST MAPA</title>
+<title>Geocercas</title>
 
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
 
+<link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.css" rel="stylesheet"/>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 html, body { margin:0; height:100%; }
-#map { width:100%; height:100%; }
+#map { position:absolute; top:0; bottom:0; width:100%; }
+
+.controls{
+ position:absolute;
+ top:20px;
+ left:20px;
+ z-index:10;
+}
+
+button{
+ background:#7b1e3a;
+ color:white;
+ border:none;
+ padding:12px 16px;
+ border-radius:10px;
+ font-weight:bold;
+ cursor:pointer;
+}
 </style>
 </head>
 
@@ -17,10 +39,20 @@ html, body { margin:0; height:100%; }
 
 <div id="map"></div>
 
+<div class="controls">
+  <button onclick="guardar()">💾 Guardar Geocerca</button>
+</div>
+
 <script>
 
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
+const supabase = supabaseJs.createClient(
+  "https://qlyndvihlqiirztnqxim.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
+);
+
+// 1. MAPA
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/streets-v12",
@@ -28,9 +60,64 @@ const map = new mapboxgl.Map({
   zoom: 15
 });
 
-map.on("load", () => {
-  console.log("MAPA CARGADO OK");
+// 2. DRAW
+const draw = new MapboxDraw({
+  displayControlsDefault: false,
+  controls: {
+    polygon: true,
+    trash: true
+  },
+  styles: [
+    {
+      id: "gl-draw-polygon-fill",
+      type: "fill",
+      paint: {
+        "fill-color": "#7b1e3a",
+        "fill-opacity": 0.4
+      }
+    },
+    {
+      id: "gl-draw-polygon-stroke",
+      type: "line",
+      paint: {
+        "line-color": "#7b1e3a",
+        "line-width": 3
+      }
+    }
+  ]
 });
+
+map.addControl(draw);
+
+// 3. GUARDAR
+async function guardar() {
+
+  const data = draw.getAll();
+
+  if (!data.features.length) {
+    alert("Dibuja una geocerca primero");
+    return;
+  }
+
+  const coords = data.features[0].geometry.coordinates;
+
+  const { error } = await supabase
+    .from("geocercas")
+    .insert([
+      {
+        nombre: "zona",
+        coordenadas: coords
+      }
+    ]);
+
+  if (error) {
+    console.log(error);
+    alert("Error guardando geocerca");
+  } else {
+    alert("Geocerca guardada ✔");
+    draw.deleteAll();
+  }
+}
 
 </script>
 
