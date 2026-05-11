@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Geocercas</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>Geocercas App</title>
 
 <!-- MAPBOX -->
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet"/>
@@ -16,45 +18,70 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
 }
 
-#map {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 100%;
+html,body{
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  font-family:Arial, Helvetica, sans-serif;
+}
+
+/* MAPA */
+#map{
+  position:absolute;
+  width:100%;
+  height:100%;
 }
 
 /* PANEL */
-.controls {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.controls{
+  position:absolute;
+  top:20px;
+  left:20px;
+  z-index:10;
+
+  display:flex;
+  flex-direction:column;
+  gap:12px;
 }
 
-/* BOTONES ROJO VINO */
-button {
-  background: #7b1e3a; /* rojo vino */
-  color: white;
-  border: none;
-  padding: 12px 14px;
-  border-radius: 10px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+/* BOTONES */
+button{
+  background:#7b1e3a;
+  color:white;
+  border:none;
+  padding:14px 18px;
+  border-radius:12px;
+  cursor:pointer;
+  font-weight:bold;
+  font-size:14px;
+
+  box-shadow:0 4px 10px rgba(0,0,0,.25);
+
+  transition:0.2s;
 }
 
-button:hover {
-  background: #5e152c;
+button:hover{
+  background:#5c132b;
+  transform:scale(1.03);
 }
+
+/* BI USUARIO */
+.user-marker{
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  background:#00bfff;
+  border:4px solid white;
+  box-shadow:0 0 10px rgba(0,0,0,.4);
+}
+
 </style>
 </head>
 
@@ -63,133 +90,345 @@ button:hover {
 <div id="map"></div>
 
 <div class="controls">
-  <button onclick="activarDibujo()">✏️ Dibujar Geocerca</button>
-  <button onclick="guardar()">💾 Save Geocerca</button>
-  <button onclick="borrar()">🗑️ Borrar</button>
+
+  <button onclick="activarDibujo()">
+    ✏️ Dibujar Geocerca
+  </button>
+
+  <button onclick="guardarGeocerca()">
+    💾 Guardar Geocerca
+  </button>
+
+  <button onclick="eliminarTodo()">
+    🗑️ Borrar
+  </button>
+
 </div>
 
 <script>
 
-mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
+// ======================================================
+// TOKEN MAPBOX
+// ======================================================
 
-// 🔥 SUPABASE
+mapboxgl.accessToken =
+"pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
+
+// ======================================================
+// SUPABASE
+// ======================================================
+
 const supabase = window.supabase.createClient(
   "https://qlyndvihlqiirztnqxim.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
-// ================= MAPA =================
+// ======================================================
+// MAPA
+// ======================================================
+
 const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/streets-v12',
-  center: [-68.2096, -16.5270],
-  zoom: 15
+  container:'map',
+  style:'mapbox://styles/mapbox/streets-v12',
+
+  center:[-68.1193,-16.4897], // LA PAZ
+
+  zoom:14
 });
 
-// ================= DRAW =================
+// ======================================================
+// CONTROLES MAPA
+// ======================================================
+
+map.addControl(new mapboxgl.NavigationControl());
+
+// ======================================================
+// DRAW
+// ======================================================
+
 const draw = new MapboxDraw({
-  displayControlsDefault: false,
-  controls: {
-    polygon: true,
-    trash: true
+
+  displayControlsDefault:false,
+
+  controls:{
+    polygon:true,
+    trash:true
   },
-  styles: [
-    // POLÍGONO ROJO VINO
+
+  styles:[
+
+    // FILL
     {
-      id: 'custom-polygon',
-      type: 'fill',
-      paint: {
-        'fill-color': '#7b1e3a',
-        'fill-opacity': 0.4
+      'id':'gl-draw-polygon-fill',
+      'type':'fill',
+      'filter':['all',['==','$type','Polygon']],
+      'paint':{
+        'fill-color':'#7b1e3a',
+        'fill-opacity':0.35
       }
     },
+
+    // LINE
     {
-      id: 'custom-outline',
-      type: 'line',
-      paint: {
-        'line-color': '#7b1e3a',
-        'line-width': 3
+      'id':'gl-draw-polygon-stroke-active',
+      'type':'line',
+      'filter':['all',['==','$type','Polygon']],
+      'layout':{
+        'line-cap':'round',
+        'line-join':'round'
+      },
+      'paint':{
+        'line-color':'#7b1e3a',
+        'line-width':3
       }
     }
+
   ]
+
 });
 
 map.addControl(draw);
 
-// ================= INIT =================
-map.on('load', () => {
-  map.resize();
-  cargarGeocercas();
+// ======================================================
+// CARGA INICIAL
+// ======================================================
+
+map.on('load', async()=>{
+
+  await cargarGeocercas();
+
+  iniciarGPS();
+
 });
 
-// ================= BOTONES =================
-function activarDibujo() {
+// ======================================================
+// DIBUJAR
+// ======================================================
+
+function activarDibujo(){
+
   draw.changeMode('draw_polygon');
+
 }
 
-function borrar() {
+// ======================================================
+// BORRAR
+// ======================================================
+
+async function eliminarTodo(){
+
   draw.deleteAll();
+
+  if(map.getSource('geocercas')){
+    map.getSource('geocercas').setData({
+      type:'FeatureCollection',
+      features:[]
+    });
+  }
+
+  await supabase
+    .from('geocercas')
+    .delete()
+    .neq('id',0);
+
+  alert("Geocercas eliminadas");
+
 }
 
-// ================= GUARDAR =================
-async function guardar() {
+// ======================================================
+// GUARDAR
+// ======================================================
+
+async function guardarGeocerca(){
 
   const data = draw.getAll();
 
-  if (!data.features.length) {
+  if(!data.features.length){
+
     alert("Dibuja una geocerca primero");
     return;
   }
 
-  const coords = data.features[0].geometry.coordinates;
+  const coords =
+    data.features[0].geometry.coordinates;
 
-  const { error } = await supabase
+  // BORRAR ANTERIORES
+  await supabase
+    .from('geocercas')
+    .delete()
+    .neq('id',0);
+
+  // INSERTAR NUEVA
+  const {error} = await supabase
     .from('geocercas')
     .insert([{
-      nombre: 'zona',
-      coordenadas: coords
+
+      nombre:'zona',
+
+      coordenadas:coords
+
     }]);
 
-  if (error) {
+  if(error){
+
     console.log(error);
-    alert("Error guardando geocerca");
+
+    alert("Error guardando");
     return;
   }
 
   alert("✅ Geocerca guardada");
 
   draw.deleteAll();
+
   cargarGeocercas();
+
 }
 
-// ================= CARGAR =================
-async function cargarGeocercas() {
+// ======================================================
+// CARGAR GEOCERCAS
+// ======================================================
 
-  const { data, error } = await supabase
+async function cargarGeocercas(){
+
+  const {data,error} = await supabase
     .from('geocercas')
     .select('*');
 
-  if (error) {
+  if(error){
+
     console.log(error);
     return;
   }
 
-  data.forEach(g => {
+  const features = data.map(g=>({
 
-    if (!g.coordenadas) return;
+    type:'Feature',
 
-    const feature = {
-      type: "Feature",
-      geometry: {
-        type: "Polygon",
-        coordinates: g.coordenadas
-      }
-    };
+    geometry:{
+      type:'Polygon',
+      coordinates:g.coordenadas
+    },
 
-    draw.add(feature);
+    properties:{
+      nombre:g.nombre
+    }
+
+  }));
+
+  const geojson = {
+
+    type:'FeatureCollection',
+
+    features:features
+
+  };
+
+  // SI YA EXISTE
+  if(map.getSource('geocercas')){
+
+    map.getSource('geocercas')
+      .setData(geojson);
+
+    return;
+  }
+
+  // SOURCE
+  map.addSource('geocercas',{
+
+    type:'geojson',
+
+    data:geojson
+
   });
+
+  // FILL
+  map.addLayer({
+
+    id:'geocercas-fill',
+
+    type:'fill',
+
+    source:'geocercas',
+
+    paint:{
+
+      'fill-color':'#7b1e3a',
+
+      'fill-opacity':0.35
+
+    }
+
+  });
+
+  // BORDER
+  map.addLayer({
+
+    id:'geocercas-border',
+
+    type:'line',
+
+    source:'geocercas',
+
+    paint:{
+
+      'line-color':'#7b1e3a',
+
+      'line-width':3
+
+    }
+
+  });
+
 }
 
+// ======================================================
+// GPS USUARIO
+// ======================================================
+
+let markerUsuario = null;
+
+function iniciarGPS(){
+
+  if(!navigator.geolocation){
+
+    alert("Tu navegador no soporta GPS");
+    return;
+  }
+  navigator.geolocation.watchPosition(
+    (position)=>{
+      const lng = position.coords.longitude;
+      const lat = position.coords.latitude;
+
+      // CREAR BI
+      if(!markerUsuario){
+        const el = document.createElement('div');
+        el.className = 'user-marker';
+        markerUsuario = new mapboxgl.Marker(el)
+          .setLngLat([lng,lat])
+          .addTo(map);
+        // CENTRAR
+        map.flyTo({
+
+          center:[lng,lat],
+
+          zoom:16
+        });
+      }else{
+        markerUsuario.setLngLat([lng,lat]);
+      }
+    },
+    (error)=>{
+      console.log(error);
+      alert("No se pudo obtener ubicación");
+    },
+    {
+      enableHighAccuracy:true,
+      maximumAge:0,
+      timeout:5000
+    }
+  );
+}
 </script>
-</body>
+</bo
 </html>
