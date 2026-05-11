@@ -2,17 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Geocercas PRO</title>
+<title>Geocercas FIX DRAW</title>
 
-<!-- MAPBOX -->
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
 
-<!-- DRAW -->
 <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.js"></script>
 
-<!-- SUPABASE -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -43,7 +40,7 @@ button{
 <div id="map"></div>
 
 <div class="controls">
-  <button onclick="guardarGeocerca()">💾 Guardar Geocerca</button>
+  <button onclick="guardar()">💾 Guardar Geocerca</button>
 </div>
 
 <script>
@@ -56,7 +53,6 @@ window.supabaseClient = window.supabase.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
-/* MAPA */
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/streets-v12",
@@ -64,42 +60,44 @@ const map = new mapboxgl.Map({
   zoom: 15
 });
 
-/* DRAW */
-const draw = new MapboxDraw({
-  displayControlsDefault: false,
-  controls: {
-    polygon: true,
-    trash: true
-  },
-  styles: [
-    {
-      id: "fill",
-      type: "fill",
-      paint: {
-        "fill-color": "#7b1e3a",
-        "fill-opacity": 0.35
-      }
-    },
-    {
-      id: "line",
-      type: "line",
-      paint: {
-        "line-color": "#7b1e3a",
-        "line-width": 3
-      }
-    }
-  ]
-});
+let draw; // 🔥 IMPORTANTE global
 
-map.addControl(draw);
-
-/* CARGAR GEOCECAS */
 map.on("load", () => {
+
+  /* 🔥 DRAW SE CREA DENTRO DEL LOAD */
+  draw = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      polygon: true,
+      trash: true
+    },
+    styles: [
+      {
+        id: "poly-fill",
+        type: "fill",
+        paint: {
+          "fill-color": "#7b1e3a",
+          "fill-opacity": 0.35
+        }
+      },
+      {
+        id: "poly-line",
+        type: "line",
+        paint: {
+          "line-color": "#7b1e3a",
+          "line-width": 3
+        }
+      }
+    ]
+  });
+
+  map.addControl(draw);
+
   cargarGeocercas();
 });
 
-/* GUARDAR GEOCECA */
-async function guardarGeocerca() {
+/* GUARDAR */
+async function guardar() {
 
   const data = draw.getAll();
 
@@ -121,15 +119,15 @@ async function guardarGeocerca() {
 
   if (error) {
     console.log(error);
-    alert("Error guardando geocerca");
+    alert("Error guardando");
   } else {
-    alert("✔ Geocerca guardada");
+    alert("✔ Guardado");
     draw.deleteAll();
     cargarGeocercas();
   }
 }
 
-/* CARGAR GEOCECAS */
+/* CARGAR */
 async function cargarGeocercas() {
 
   const { data, error } = await window.supabaseClient
