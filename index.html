@@ -4,34 +4,56 @@
 <meta charset="UTF-8">
 <title>Geocercas</title>
 
+<!-- MAPBOX -->
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
 
+<!-- DRAW -->
 <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- SUPABASE -->
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 <style>
-body,html{margin:0;height:100%}
-#map{position:absolute;top:0;bottom:0;width:100%}
-
-.controls{
- position:absolute;
- top:20px;
- left:20px;
- z-index:10;
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }
 
-button{
- background:#7b1e3a;
- color:white;
- border:none;
- padding:12px;
- border-radius:10px;
- margin:5px;
- font-weight:bold;
- cursor:pointer;
+#map {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+
+/* PANEL */
+.controls {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* BOTONES ROJO VINO */
+button {
+  background: #7b1e3a; /* rojo vino */
+  color: white;
+  border: none;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+button:hover {
+  background: #5e152c;
 }
 </style>
 </head>
@@ -41,18 +63,22 @@ button{
 <div id="map"></div>
 
 <div class="controls">
-  <button onclick="guardar()">💾 Guardar Geocerca</button>
+  <button onclick="activarDibujo()">✏️ Dibujar Geocerca</button>
+  <button onclick="guardar()">💾 Save Geocerca</button>
+  <button onclick="borrar()">🗑️ Borrar</button>
 </div>
 
 <script>
 
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
+// 🔥 SUPABASE
 const supabase = window.supabase.createClient(
   "https://qlyndvihlqiirztnqxim.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
+// ================= MAPA =================
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/streets-v12',
@@ -60,61 +86,88 @@ const map = new mapboxgl.Map({
   zoom: 15
 });
 
+// ================= DRAW =================
 const draw = new MapboxDraw({
   displayControlsDefault: false,
-  controls: { polygon: true, trash: true }
+  controls: {
+    polygon: true,
+    trash: true
+  },
+  styles: [
+    // POLÍGONO ROJO VINO
+    {
+      id: 'custom-polygon',
+      type: 'fill',
+      paint: {
+        'fill-color': '#7b1e3a',
+        'fill-opacity': 0.4
+      }
+    },
+    {
+      id: 'custom-outline',
+      type: 'line',
+      paint: {
+        'line-color': '#7b1e3a',
+        'line-width': 3
+      }
+    }
+  ]
 });
 
 map.addControl(draw);
 
-// 🔥 IMPORTANTE
+// ================= INIT =================
 map.on('load', () => {
   map.resize();
   cargarGeocercas();
 });
 
+// ================= BOTONES =================
+function activarDibujo() {
+  draw.changeMode('draw_polygon');
+}
 
-// ======================
-// GUARDAR
-// ======================
+function borrar() {
+  draw.deleteAll();
+}
+
+// ================= GUARDAR =================
 async function guardar() {
 
   const data = draw.getAll();
 
   if (!data.features.length) {
-    alert("Dibuja una geocerca");
+    alert("Dibuja una geocerca primero");
     return;
   }
 
   const coords = data.features[0].geometry.coordinates;
 
   const { error } = await supabase
-    .from("geocercas")
+    .from('geocercas')
     .insert([{
-      nombre: "zona",
+      nombre: 'zona',
       coordenadas: coords
     }]);
 
   if (error) {
     console.log(error);
-    alert("Error guardando");
+    alert("Error guardando geocerca");
     return;
   }
 
   alert("✅ Geocerca guardada");
+
   draw.deleteAll();
   cargarGeocercas();
 }
 
-
-// ======================
-// CARGAR
-// ======================
+// ================= CARGAR =================
 async function cargarGeocercas() {
 
   const { data, error } = await supabase
-    .from("geocercas")
-    .select("*");
+    .from('geocercas')
+    .select('*');
 
   if (error) {
     console.log(error);
@@ -127,7 +180,6 @@ async function cargarGeocercas() {
 
     const feature = {
       type: "Feature",
-      properties: {},
       geometry: {
         type: "Polygon",
         coordinates: g.coordenadas
