@@ -47,12 +47,12 @@ button{
 
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
-const supabase = supabaseJs.createClient(
+/* 🔥 ESTA ES LA FORMA CORRECTA */
+const supabase = window.supabase.createClient(
   "https://qlyndvihlqiirztnqxim.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
-// 1. MAPA
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/streets-v12",
@@ -60,7 +60,6 @@ const map = new mapboxgl.Map({
   zoom: 15
 });
 
-// 2. DRAW
 const draw = new MapboxDraw({
   displayControlsDefault: false,
   controls: {
@@ -69,7 +68,7 @@ const draw = new MapboxDraw({
   },
   styles: [
     {
-      id: "gl-draw-polygon-fill",
+      id: "geo-fill",
       type: "fill",
       paint: {
         "fill-color": "#7b1e3a",
@@ -77,7 +76,7 @@ const draw = new MapboxDraw({
       }
     },
     {
-      id: "gl-draw-polygon-stroke",
+      id: "geo-line",
       type: "line",
       paint: {
         "line-color": "#7b1e3a",
@@ -89,13 +88,12 @@ const draw = new MapboxDraw({
 
 map.addControl(draw);
 
-// 3. GUARDAR
 async function guardar() {
 
   const data = draw.getAll();
 
   if (!data.features.length) {
-    alert("Dibuja una geocerca primero");
+    alert("Dibuja una geocerca");
     return;
   }
 
@@ -112,9 +110,9 @@ async function guardar() {
 
   if (error) {
     console.log(error);
-    alert("Error guardando geocerca");
+    alert("Error guardando");
   } else {
-    alert("Geocerca guardada ✔");
+    alert("✔ Geocerca guardada");
     draw.deleteAll();
   }
 }
