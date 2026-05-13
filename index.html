@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Geocercas FIX DRAW</title>
+<title>Geocercas PRO</title>
 
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
@@ -14,13 +14,22 @@
 
 <style>
 html, body { margin:0; height:100%; }
-#map { position:absolute; top:0; bottom:0; width:100%; }
 
+#map {
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:100%;
+}
+
+/* 🔥 BOTONES BONITOS */
 .controls{
  position:absolute;
  top:15px;
  left:15px;
  z-index:10;
+ display:flex;
+ flex-direction:column;
 }
 
 button{
@@ -28,9 +37,15 @@ button{
  color:white;
  border:none;
  padding:12px 16px;
- border-radius:10px;
+ border-radius:12px;
  font-weight:bold;
  cursor:pointer;
+ margin:5px;
+ box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+button:hover{
+ background:#a63a5a;
 }
 </style>
 </head>
@@ -40,16 +55,18 @@ button{
 <div id="map"></div>
 
 <div class="controls">
-  <button onclick="guardar()">💾 Guardar Geocerca</button>
+  <button onclick="dibujar()">✏️ Dibujar geocerca</button>
+  <button onclick="guardar()">💾 Guardar</button>
+  <button onclick="limpiar()">🗑 Limpiar</button>
 </div>
 
 <script>
 
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
-/* 🔥 SUPABASE SOLO UNA VEZ (SIN DUPLICADOS) */
-window.supabaseClient = window.supabase.createClient(
-   "https://qlyndvihlqiirztnqxim.supabase.co",
+/* 🔥 SUPABASE */
+const supabase = window.supabase.createClient(
+  "https://qlyndvihlqiirztnqxim.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
@@ -60,35 +77,12 @@ const map = new mapboxgl.Map({
   zoom: 15
 });
 
-let draw; // 🔥 IMPORTANTE global
+let draw;
 
 map.on("load", () => {
 
-  /* 🔥 DRAW SE CREA DENTRO DEL LOAD */
   draw = new MapboxDraw({
-    displayControlsDefault: false,
-    controls: {
-      polygon: true,
-      trash: true
-    },
-    styles: [
-      {
-        id: "poly-fill",
-        type: "fill",
-        paint: {
-          "fill-color": "#7b1e3a",
-          "fill-opacity": 0.35
-        }
-      },
-      {
-        id: "poly-line",
-        type: "line",
-        paint: {
-          "line-color": "#7b1e3a",
-          "line-width": 3
-        }
-      }
-    ]
+    displayControlsDefault: false
   });
 
   map.addControl(draw);
@@ -96,19 +90,29 @@ map.on("load", () => {
   cargarGeocercas();
 });
 
-/* GUARDAR */
-async function guardar() {
+/* 🔥 ACTIVAR DIBUJO */
+function dibujar(){
+  draw.changeMode("draw_polygon");
+}
+
+/* 🔥 LIMPIAR */
+function limpiar(){
+  draw.deleteAll();
+}
+
+/* 🔥 GUARDAR */
+async function guardar(){
 
   const data = draw.getAll();
 
-  if (!data.features.length) {
+  if (!data.features.length){
     alert("Dibuja una geocerca primero");
     return;
   }
 
   const coords = data.features[0].geometry.coordinates;
 
-  const { error } = await window.supabaseClient
+  const { error } = await supabase
     .from("geocercas")
     .insert([
       {
@@ -117,24 +121,24 @@ async function guardar() {
       }
     ]);
 
-  if (error) {
+  if (error){
     console.log(error);
     alert("Error guardando");
   } else {
-    alert("✔ Guardado");
+    alert("✅ Guardado");
     draw.deleteAll();
     cargarGeocercas();
   }
 }
 
-/* CARGAR */
-async function cargarGeocercas() {
+/* 🔥 CARGAR GEOCERCAS */
+async function cargarGeocercas(){
 
-  const { data, error } = await window.supabaseClient
+  const { data, error } = await supabase
     .from("geocercas")
     .select("*");
 
-  if (error) {
+  if (error){
     console.log(error);
     return;
   }
