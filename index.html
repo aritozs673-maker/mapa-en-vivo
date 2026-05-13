@@ -4,12 +4,15 @@
 <meta charset="UTF-8">
 <title>Geocercas PRO</title>
 
+<!-- MAPBOX -->
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
 
+<!-- DRAW -->
 <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.2/mapbox-gl-draw.js"></script>
 
+<!-- SUPABASE (SOLO UNA VEZ) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -22,7 +25,7 @@ html, body { margin:0; height:100%; }
   width:100%;
 }
 
-/* 🔥 BOTONES BONITOS */
+/* BOTONES */
 .controls{
  position:absolute;
  top:15px;
@@ -55,7 +58,7 @@ button:hover{
 <div id="map"></div>
 
 <div class="controls">
-  <button onclick="dibujar()">✏️ Dibujar geocerca</button>
+  <button onclick="dibujar()">✏️ Dibujar</button>
   <button onclick="guardar()">💾 Guardar</button>
   <button onclick="limpiar()">🗑 Limpiar</button>
 </div>
@@ -63,9 +66,9 @@ button:hover{
 <script>
 
 // 🔥 TOKEN MAPBOX
-mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
+mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA" // ← SI FALLA EL MAPA ES POR ESTO
 
-// 🔥 SUPABASE (SOLO UNA VEZ)
+// 🔥 SUPABASE (UNA SOLA VEZ)
 const supabase = window.supabase.createClient(
   "https://qlyndvihlqiirztnqxim.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
@@ -85,7 +88,25 @@ let draw;
 map.on("load", () => {
 
   draw = new MapboxDraw({
-    displayControlsDefault: false
+    displayControlsDefault: false,
+    styles: [
+      {
+        id: "polygon-fill",
+        type: "fill",
+        paint: {
+          "fill-color": "#7b1e3a",
+          "fill-opacity": 0.4
+        }
+      },
+      {
+        id: "polygon-line",
+        type: "line",
+        paint: {
+          "line-color": "#7b1e3a",
+          "line-width": 3
+        }
+      }
+    ]
   });
 
   map.addControl(draw);
@@ -109,7 +130,7 @@ async function guardar(){
   const data = draw.getAll();
 
   if (!data.features.length){
-    alert("Dibuja una geocerca primero");
+    alert("Dibuja primero");
     return;
   }
 
@@ -126,7 +147,7 @@ async function guardar(){
 
   if (error){
     console.log(error);
-    alert("Error guardando");
+    alert("❌ Error");
   } else {
     alert("✅ Guardado");
     draw.deleteAll();
@@ -134,7 +155,7 @@ async function guardar(){
   }
 }
 
-// 🔥 CARGAR DESDE SUPABASE
+// 🔥 CARGAR DESDE BD
 async function cargarGeocercas(){
 
   const { data, error } = await supabase
