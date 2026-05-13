@@ -90,8 +90,17 @@ let draw;
 // 🔥 CUANDO CARGA
 map.on("load", () => {
 
-  ...
+  draw = new MapboxDraw({
+    displayControlsDefault: false
+  });
 
+  map.addControl(draw);
+
+  cargarGeocercas();
+
+  // =========================
+  // UBICACIÓN (SEGURO)
+  // =========================
   const geolocate = new mapboxgl.GeolocateControl({
     positionOptions: {
       enableHighAccuracy: true
@@ -102,9 +111,6 @@ map.on("load", () => {
 
   map.addControl(geolocate);
 
-  geolocate.trigger(); // 👈 esto centra automático al abrir
-
-  cargarGeocercas();
 });
 // 🔥 DIBUJAR
 function dibujar(){
