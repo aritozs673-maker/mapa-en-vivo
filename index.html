@@ -143,6 +143,8 @@ async function guardar(){
 // 🔥 CARGAR
 async function cargarGeocercas(){
 
+  draw.deleteAll();
+
   const { data, error } = await supabaseClient
     .from("geocercas")
     .select("*");
