@@ -127,25 +127,30 @@ function dibujar(){
   draw.changeMode("draw_polygon");
 }
 
-// 🔥 LIMPIAR
 async function limpiar(){
 
-  // limpiar visualmente
+  // borrar visualmente
   draw.deleteAll();
 
-  // borrar en Supabase
-  const { error } = await supabaseClient
+  // borrar DB
+  const { data, error } = await supabaseClient
     .from("geocercas")
     .delete()
-    .neq("id", 0);
+    .neq("id", 0)
+    .select();
+
+  console.log("DELETE:", data, error);
 
   if(error){
-    console.log(error);
     alert("❌ Error eliminando");
+    console.log(error);
     return;
   }
 
-  alert("🗑 Geocercas eliminadas");
+  // volver a cargar desde DB
+  await cargarGeocercas();
+
+  alert("🗑 Eliminado");
 }
 
 // 🔥 GUARDAR
@@ -202,7 +207,7 @@ async function cargarGeocercas(){
     console.log(error);
     return;
   }
-
+  console.log("GEOCERCAS DB:", data);
   data.forEach(g => {
 
     if (!g.coordenadas) return;
