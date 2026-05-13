@@ -90,15 +90,22 @@ let draw;
 // 🔥 CUANDO CARGA
 map.on("load", () => {
 
-  draw = new MapboxDraw({
-    displayControlsDefault: false
+  ...
+
+  const geolocate = new mapboxgl.GeolocateControl({
+    positionOptions: {
+      enableHighAccuracy: true
+    },
+    trackUserLocation: true,
+    showUserHeading: true
   });
 
-  map.addControl(draw);
+  map.addControl(geolocate);
+
+  geolocate.trigger(); // 👈 esto centra automático al abrir
 
   cargarGeocercas();
 });
-
 // 🔥 DIBUJAR
 function dibujar(){
   draw.changeMode("draw_polygon");
