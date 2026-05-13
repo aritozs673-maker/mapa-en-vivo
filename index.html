@@ -128,8 +128,24 @@ function dibujar(){
 }
 
 // 🔥 LIMPIAR
-function limpiar(){
+async function limpiar(){
+
+  // limpiar visualmente
   draw.deleteAll();
+
+  // borrar en Supabase
+  const { error } = await supabaseClient
+    .from("geocercas")
+    .delete()
+    .neq("id", 0);
+
+  if(error){
+    console.log(error);
+    alert("❌ Error eliminando");
+    return;
+  }
+
+  alert("🗑 Geocercas eliminadas");
 }
 
 // 🔥 GUARDAR
@@ -144,6 +160,13 @@ async function guardar(){
 
   const coords = data.features[0].geometry.coordinates;
 
+  // 🔥 BORRAR ANTERIORES
+  await supabaseClient
+    .from("geocercas")
+    .delete()
+    .neq("id", 0);
+
+  // 🔥 INSERTAR NUEVA
   const { error } = await supabaseClient
     .from("geocercas")
     .insert([
@@ -157,8 +180,11 @@ async function guardar(){
     console.log(error);
     alert("❌ Error guardando");
   } else {
+
     alert("✅ Guardado");
+
     draw.deleteAll();
+
     cargarGeocercas();
   }
 }
