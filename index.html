@@ -99,7 +99,7 @@ map.on("load", () => {
   cargarGeocercas();
 
   // =========================
-  // UBICACIÓN (SEGURO)
+  // UBICACIÓN (FIX REAL)
   // =========================
   const geolocate = new mapboxgl.GeolocateControl({
     positionOptions: {
@@ -110,6 +110,16 @@ map.on("load", () => {
   });
 
   map.addControl(geolocate);
+
+  // 🔥 ESTO ES LO QUE TE FALTABA
+  geolocate.on("geolocate", (e) => {
+    console.log("Ubicación detectada:", e.coords);
+  });
+
+  // 🔥 FORZAR UBICACIÓN AUTOMÁTICA
+  setTimeout(() => {
+    geolocate.trigger();
+  }, 1000);
 
 });
 // 🔥 DIBUJAR
