@@ -63,17 +63,14 @@ button{
 
 <script>
 
-// 🔥 MAPBOX
 mapboxgl.accessToken =
 "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
-// 🔥 SUPABASE
 const supabaseClient = window.supabase.createClient(
-  "https://qlyndvihlqiirztnqxim.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
+"https://qlyndvihlqiirztnqxim.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XXqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
-// 🔥 MAPA
 const map = new mapboxgl.Map({
   container:"map",
   style:"mapbox://styles/mapbox/streets-v12",
@@ -96,6 +93,7 @@ map.on("load", () => {
 
   cargarGeocercas();
   cargarUltimaUbicacion();
+
 });
 
 // 🔥 DIBUJAR
@@ -160,39 +158,14 @@ async function guardar(){
 
   await supabaseClient
     .from("geocercas")
-    .insert([{
-      nombre:"zona",
-      coordenadas:coords
-    }]);
+    .insert([{ nombre:"zona", coordenadas:coords }]);
 
   validarGeocerca();
   draw.deleteAll();
   cargarGeocercas();
 }
 
-// 🔥 CARGAR GEOCERCAS
-async function cargarGeocercas(){
-
-  draw.deleteAll();
-
-  const { data } = await supabaseClient
-    .from("geocercas")
-    .select("*");
-
-  data.forEach(g => {
-
-    draw.add({
-      type:"Feature",
-      geometry:{
-        type:"Polygon",
-        coordinates:g.coordenadas
-      }
-    });
-
-  });
-}
-
-// 🔥 UBICACIÓN REAL (VALIDADA)
+// 🔥 CARGAR ÚLTIMA UBICACIÓN (FIX REAL)
 async function cargarUltimaUbicacion(){
 
   const { data } = await supabaseClient
@@ -203,13 +176,13 @@ async function cargarUltimaUbicacion(){
 
   if(!data.length) return;
 
-  const ultima = data[0];
+  const u = data[0];
 
-  const lon = parseFloat(ultima.lon);
-  const lat = parseFloat(ultima.lat);
+  const lon = parseFloat(u.lon);
+  const lat = parseFloat(u.lat);
 
-  // 🔥 FILTRO ANTI DATOS MALOS
-  if(isNaN(lon) || isNaN(lat)) return;
+  // 🔥 FILTRO FUERTE
+  if(!isFinite(lon) || !isFinite(lat)) return;
 
   userLocation = [lon, lat];
 
@@ -238,7 +211,7 @@ function mostrarMarcador(){
   });
 }
 
-// 🔥 VALIDAR GEOCERCA
+// 🔥 VALIDAR
 async function validarGeocerca(){
 
   if(!userLocation) return;
@@ -265,22 +238,21 @@ async function validarGeocerca(){
   setTimeout(() => box.style.display = "none", 4000);
 }
 
-// 🔥 REALTIME (CORRECTO)
+// 🔥 REALTIME (FIX FINAL)
 supabaseClient
 .channel("ubicaciones")
 .on("postgres_changes", {
-  event:"UPDATE",
+  event:"INSERT",
   schema:"public",
   table:"ubicaciones"
 }, payload => {
 
-  const nueva = payload.new;
+  const n = payload.new;
 
-  const lon = parseFloat(nueva.lon);
-  const lat = parseFloat(nueva.lat);
+  const lon = parseFloat(n.lon);
+  const lat = parseFloat(n.lat);
 
-  // 🔥 FILTRO CRÍTICO
-  if(isNaN(lon) || isNaN(lat)) return;
+  if(!isFinite(lon) || !isFinite(lat)) return;
 
   userLocation = [lon, lat];
 
