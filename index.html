@@ -30,9 +30,8 @@ button{
  color:white;
  border:none;
  padding:12px;
- margin:5px;
  border-radius:10px;
- cursor:pointer;
+ margin:5px;
 }
 </style>
 </head>
@@ -73,23 +72,17 @@ map.on("load", () => {
 
   map.addControl(draw);
 
-  cargarGeocercas();
-
-  // 📍 UBICACIÓN USUARIO
-  const geolocate = new mapboxgl.GeolocateControl({
-    positionOptions: {
-      enableHighAccuracy: true
-    },
+  // 📍 ubicación
+  const geo = new mapboxgl.GeolocateControl({
     trackUserLocation: true,
     showUserHeading: true
   });
 
-  map.addControl(geolocate);
+  map.addControl(geo);
 
-  setTimeout(() => {
-    geolocate.trigger();
-  }, 1000);
+  setTimeout(() => geo.trigger(), 1000);
 
+  cargarGeocercas();
 });
 
 function dibujar(){
@@ -103,6 +96,7 @@ function limpiar(){
 async function guardar(){
 
   const data = draw.getAll();
+
   if (!data.features.length){
     alert("Dibuja primero");
     return;
@@ -114,9 +108,9 @@ async function guardar(){
 
   const { error } = await supabaseClient
     .from("geocercas")
-    .insert([{ nombre:"zona", coordenadas:coords }]);
+    .insert([{ nombre:"zona", coordenadas: coords }]);
 
-  if(error){
+  if (error){
     alert("Error");
   } else {
     alert("Guardado");
@@ -133,10 +127,15 @@ async function cargarGeocercas(){
     .from("geocercas")
     .select("*");
 
-  data.forEach(g=>{
+  data.forEach(g => {
+    if (!g.coordenadas) return;
+
     draw.add({
       type:"Feature",
-      geometry:{ type:"Polygon", coordinates:g.coordenadas }
+      geometry:{
+        type:"Polygon",
+        coordinates:g.coordenadas
+      }
     });
   });
 }
