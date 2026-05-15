@@ -22,7 +22,6 @@ html, body { margin:0; height:100%; }
   width:100%;
 }
 
-/* BOTONES */
 .controls{
  position:absolute;
  top:15px;
@@ -41,7 +40,6 @@ button{
  margin:5px;
 }
 
-/* ALERTA */
 #alertaBox{
  position:absolute;
  top:20px;
@@ -60,7 +58,6 @@ button{
 <body>
 
 <div id="map"></div>
-
 <div id="alertaBox">🚨 FUERA DE LA ZONA</div>
 
 <div class="controls">
@@ -80,6 +77,11 @@ const supabaseClient = window.supabase.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
+// 🔔 PEDIR PERMISO NOTIFICACIÓN (NO ROMPE NADA)
+if ("Notification" in window) {
+  Notification.requestPermission();
+}
+
 // 🔥 MAPA
 const map = new mapboxgl.Map({
   container: "map",
@@ -91,7 +93,7 @@ const map = new mapboxgl.Map({
 let draw;
 
 // =========================
-// 🔥 LOAD
+// LOAD
 // =========================
 map.on("load", () => {
 
@@ -101,34 +103,28 @@ map.on("load", () => {
 
   map.addControl(draw);
 
-  // 🔥 UBICACIÓN USUARIO (PUNTO AZUL)
-  const geolocate = new mapboxgl.GeolocateControl({
-    positionOptions: {
-      enableHighAccuracy: true
-    },
-    trackUserLocation: true,
-    showUserHeading: true
+  // 📍 ubicación usuario
+  const geo = new mapboxgl.GeolocateControl({
+    positionOptions: { enableHighAccuracy: true },
+    trackUserLocation: true
   });
 
-  map.addControl(geolocate);
+  map.addControl(geo);
 
-  // 🔥 activar automáticamente
-  setTimeout(() => {
-    geolocate.trigger();
-  }, 1000);
+  setTimeout(() => geo.trigger(), 1000);
 
   cargarGeocercas();
 });
 
 // =========================
-// 🔥 DIBUJAR
+// DIBUJAR
 // =========================
 function dibujar(){
   draw.changeMode("draw_polygon");
 }
 
 // =========================
-// 🔥 LIMPIAR
+// LIMPIAR
 // =========================
 async function limpiar(){
 
@@ -139,13 +135,11 @@ async function limpiar(){
     .delete()
     .neq("id", 0);
 
-  alert("🗑 Eliminado");
-
   cargarGeocercas();
 }
 
 // =========================
-// 🔥 GUARDAR
+// GUARDAR
 // =========================
 async function guardar(){
 
@@ -164,22 +158,25 @@ async function guardar(){
     .from("geocercas")
     .insert([{ nombre:"zona", coordenadas: coords }]);
 
-  alert("✅ Guardado");
-
   draw.deleteAll();
   cargarGeocercas();
 }
 
 // =========================
-// 🔥 CARGAR
+// CARGAR
 // =========================
 async function cargarGeocercas(){
 
   draw.deleteAll();
 
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("geocercas")
     .select("*");
+
+  if(error){
+    console.log(error);
+    return;
+  }
 
   data.forEach(g => {
 
@@ -197,26 +194,44 @@ async function cargarGeocercas(){
 }
 
 // =========================
-// 🚨 ALERTA TIEMPO REAL
+// 🚨 REALTIME ALERTA (FIX)
 // =========================
-supabaseClient
-.channel('alertas')
+const channel = supabaseClient
+.channel('alertas-tiempo-real')
+
 .on('postgres_changes', {
   event:'INSERT',
   schema:'public',
   table:'alertas'
 }, payload => {
 
+  console.log("🚨 ALERTA:", payload);
+
   if(payload.new.mensaje === "FUERA"){
 
-    document.getElementById("alertaBox").style.display = "block";
+    // 🔴 ALERTA VISUAL
+    const box = document.getElementById("alertaBox");
+    box.style.display = "block";
 
-    const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
-    audio.play();
+    setTimeout(() => {
+      box.style.display = "none";
+    }, 5000);
+
+    // 🔔 NOTIFICACIÓN REAL
+    if (Notification.permission === "granted") {
+      new Notification("🚨 ALERTA DE SEGURIDAD", {
+        body: "El usuario salió de la geocerca",
+        icon: "https://cdn-icons-png.flaticon.com/512/1828/1828843.png"
+      });
+    }
+
   }
 
 })
-.subscribe();
+
+.subscribe((status) => {
+  console.log("REALTIME:", status);
+});
 
 </script>
 
