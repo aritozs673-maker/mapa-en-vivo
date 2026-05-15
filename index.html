@@ -16,24 +16,6 @@
 html, body { margin:0; height:100%; }
 #map { position:absolute; top:0; bottom:0; width:100%; }
 
-.controls{
- position:absolute;
- top:15px;
- left:15px;
- z-index:10;
- display:flex;
- flex-direction:column;
-}
-
-button{
- background:#7b1e3a;
- color:white;
- border:none;
- padding:10px;
- border-radius:10px;
- margin:5px;
-}
-
 #alertaBox{
  position:absolute;
  top:20px;
@@ -52,13 +34,7 @@ button{
 <body>
 
 <div id="map"></div>
-<div id="alertaBox">🚨 ALERTA</div>
-
-<div class="controls">
-  <button onclick="dibujar()">✏️ Dibujar</button>
-  <button onclick="guardar()">💾 Guardar</button>
-  <button onclick="limpiar()">🗑 Limpiar</button>
-</div>
+<div id="alertaBox">🚨 FUERA DE LA ZONA</div>
 
 <script>
 
@@ -68,10 +44,6 @@ const supabaseClient = window.supabase.createClient(
   "https://qlyndvihlqiirztnqxim.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
-
-if ("Notification" in window) {
-  Notification.requestPermission();
-}
 
 const map = new mapboxgl.Map({
   container: "map",
@@ -84,10 +56,7 @@ let draw;
 
 map.on("load", () => {
 
-  draw = new MapboxDraw({
-    displayControlsDefault: false
-  });
-
+  draw = new MapboxDraw({ displayControlsDefault: false });
   map.addControl(draw);
 
   const geo = new mapboxgl.GeolocateControl({
@@ -100,53 +69,16 @@ map.on("load", () => {
   cargarGeocercas();
 });
 
-function dibujar(){
-  draw.changeMode("draw_polygon");
-}
-
-async function limpiar(){
-
-  draw.deleteAll();
-
-  await supabaseClient.from("geocercas").delete().neq("id",0);
-
-  cargarGeocercas();
-}
-
-async function guardar(){
-
-  const data = draw.getAll();
-
-  if (!data.features.length){
-    alert("Dibuja primero");
-    return;
-  }
-
-  const coords = data.features[0].geometry.coordinates;
-
-  await supabaseClient.from("geocercas").delete().neq("id",0);
-
-  await supabaseClient
-    .from("geocercas")
-    .insert([{ nombre:"zona", coordenadas: coords }]);
-
-  // 🔥 ALERTA INMEDIATA
-  await supabaseClient
-    .from("alertas")
-    .insert([{ mensaje: "ACTUALIZADA" }]);
-
-  draw.deleteAll();
-  cargarGeocercas();
-}
-
-// 🔄 cargar
 async function cargarGeocercas(){
 
   draw.deleteAll();
 
-  const { data } = await supabaseClient.from("geocercas").select("*");
+  const { data } = await supabaseClient
+    .from("geocercas")
+    .select("*");
 
   data.forEach(g => {
+
     if (!g.coordenadas) return;
 
     draw.add({
@@ -156,40 +88,44 @@ async function cargarGeocercas(){
         coordinates:g.coordenadas
       }
     });
+
   });
 }
 
-// 🚨 REALTIME
-supabaseClient
-.channel("alertas")
-.on("postgres_changes", {
-  event:"INSERT",
-  schema:"public",
-  table:"alertas"
-}, payload => {
+// 🚨 ALERTA CADA 2 SEGUNDOS
+let ultimaId = 0;
 
-  const msg = payload.new.mensaje;
+setInterval(async () => {
 
-  const box = document.getElementById("alertaBox");
-  box.style.display = "block";
+  const { data } = await supabaseClient
+    .from("alertas")
+    .select("*")
+    .order("id", { ascending: false })
+    .limit(1);
 
-  if(msg === "ACTUALIZADA"){
-    box.innerText = "📍 Geocerca actualizada";
+  if (!data || data.length === 0) return;
+
+  const alerta = data[0];
+
+  if (alerta.id !== ultimaId) {
+
+    ultimaId = alerta.id;
+
+    if (alerta.mensaje === "FUERA") {
+
+      const box = document.getElementById("alertaBox");
+      box.style.display = "block";
+
+      setTimeout(() => {
+        box.style.display = "none";
+      }, 5000);
+
+      const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+      audio.play();
+    }
   }
 
-  if(msg === "FUERA"){
-    box.innerText = "🚨 Usuario fuera";
-  }
-
-  setTimeout(()=> box.style.display="none", 4000);
-
-  // 🔔 notificación
-  if (Notification.permission === "granted") {
-    new Notification(box.innerText);
-  }
-
-})
-.subscribe();
+}, 2000);
 
 </script>
 
