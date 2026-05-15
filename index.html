@@ -127,9 +127,13 @@ async function limpiar(){
     .delete()
     .neq("id",0);
 
+  // 🔥 AVISAR A LA APP
+  await supabaseClient
+    .from("alertas")
+    .insert([{ mensaje:"ACTUALIZADA" }]);
+
   cargarGeocercas();
 }
-
 async function guardar(){
 
   const data = draw.getAll();
@@ -147,7 +151,7 @@ async function guardar(){
     .from("geocercas")
     .insert([{ nombre:"zona", coordenadas: coords }]);
 
-  // 🔥 ALERTA INMEDIATA
+  // 🔥 AVISAR A LA APP
   await supabaseClient
     .from("alertas")
     .insert([{ mensaje:"ACTUALIZADA" }]);
