@@ -15,12 +15,7 @@
 <style>
 html, body { margin:0; height:100%; }
 
-#map {
-  position:absolute;
-  top:0;
-  bottom:0;
-  width:100%;
-}
+#map { position:absolute; top:0; bottom:0; width:100%; }
 
 .controls{
  position:absolute;
@@ -59,7 +54,7 @@ button{
 <body>
 
 <div id="map"></div>
-<div id="alertaBox">🚨 FUERA DE LA ZONA</div>
+<div id="alertaBox">🚨 ALERTA</div>
 
 <div class="controls">
   <button onclick="dibujar()">✏️ Dibujar</button>
@@ -69,21 +64,13 @@ button{
 
 <script>
 
-// 🔔 PEDIR PERMISO NOTIFICACIONES
-if ("Notification" in window) {
-  Notification.requestPermission();
-}
+mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-BfTQM_20";
 
-// 🔥 MAPBOX
-mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
-
-// 🔥 SUPABASE
 const supabaseClient = window.supabase.createClient(
   "https://qlyndvihlqiirztnqxim.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 );
 
-// 🔥 MAPA
 const map = new mapboxgl.Map({
   container: "map",
   style: "mapbox://styles/mapbox/streets-v12",
@@ -92,21 +79,20 @@ const map = new mapboxgl.Map({
 });
 
 let draw;
+let userLocation = null;
 
-// =========================
-// LOAD
-// =========================
 map.on("load", () => {
 
-  draw = new MapboxDraw({
-    displayControlsDefault: false
-  });
-
+  draw = new MapboxDraw({ displayControlsDefault: false });
   map.addControl(draw);
 
   const geo = new mapboxgl.GeolocateControl({
     trackUserLocation: true,
     showUserHeading: true
+  });
+
+  geo.on("geolocate", e => {
+    userLocation = [e.coords.longitude, e.coords.latitude];
   });
 
   map.addControl(geo);
@@ -115,24 +101,38 @@ map.on("load", () => {
   cargarGeocercas();
 });
 
-// =========================
-// BOTONES
-// =========================
 function dibujar(){
   draw.changeMode("draw_polygon");
 }
 
 async function limpiar(){
-
   draw.deleteAll();
 
   await supabaseClient.from("geocercas").delete().neq("id",0);
-
-  await supabaseClient.from("alertas").insert([
-    { mensaje:"ACTUALIZADA" }
-  ]);
+  await supabaseClient.from("alertas").insert([{ mensaje:"ACTUALIZADA" }]);
 
   cargarGeocercas();
+}
+
+// 🔥 FUNCIÓN PARA SABER SI ESTÁ DENTRO
+function dentroPoligono(punto, poligono){
+
+  let x = punto[0], y = punto[1];
+  let inside = false;
+
+  for (let i=0, j=poligono.length-1; i<poligono.length; j=i++) {
+
+    let xi = poligono[i][0], yi = poligono[i][1];
+    let xj = poligono[j][0], yj = poligono[j][1];
+
+    let intersect =
+      ((yi > y) != (yj > y)) &&
+      (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
+
+    if (intersect) inside = !inside;
+  }
+
+  return inside;
 }
 
 async function guardar(){
@@ -148,32 +148,35 @@ async function guardar(){
 
   await supabaseClient.from("geocercas").delete().neq("id",0);
 
-  await supabaseClient.from("geocercas").insert([
-    { nombre:"zona", coordenadas: coords }
-  ]);
+  await supabaseClient
+    .from("geocercas")
+    .insert([{ nombre:"zona", coordenadas: coords }]);
 
-  await supabaseClient.from("alertas").insert([
-    { mensaje:"ACTUALIZADA" }
-  ]);
+  // 🔥 VALIDAR SI ESTÁ FUERA
+  if(userLocation){
+
+    const dentro = dentroPoligono(userLocation, coords[0]);
+
+    if(!dentro){
+      await supabaseClient.from("alertas")
+        .insert([{ mensaje:"FUERA" }]);
+    }else{
+      await supabaseClient.from("alertas")
+        .insert([{ mensaje:"DENTRO" }]);
+    }
+  }
 
   draw.deleteAll();
   cargarGeocercas();
 }
 
-// =========================
-// CARGAR
-// =========================
 async function cargarGeocercas(){
 
   draw.deleteAll();
 
-  const { data } = await supabaseClient
-    .from("geocercas")
-    .select("*");
+  const { data } = await supabaseClient.from("geocercas").select("*");
 
   data.forEach(g => {
-
-    if (!g.coordenadas) return;
 
     draw.add({
       type:"Feature",
@@ -186,55 +189,34 @@ async function cargarGeocercas(){
   });
 }
 
-// =========================
-// 🚨 ALERTA (FIX REAL)
-// =========================
-let ultimoMensaje = "";
+// 🚨 REALTIME
+supabaseClient
+.channel("alertas")
+.on("postgres_changes", {
+  event:"INSERT",
+  schema:"public",
+  table:"alertas"
+}, payload => {
 
-async function escucharAlertas(){
+  const msg = payload.new.mensaje;
 
-  const { data } = await supabaseClient
-    .from("alertas")
-    .select("*");
+  const box = document.getElementById("alertaBox");
 
-  if(!data || data.length === 0) return;
-
-  const ultimo = data[data.length - 1];
-  const msg = ultimo.mensaje;
-
-  if(msg !== ultimoMensaje){
-
-    ultimoMensaje = msg;
-
-    console.log("🚨 ALERTA:", msg);
-
-    if(msg === "FUERA"){
-
-      const box = document.getElementById("alertaBox");
-      box.style.display = "block";
-
-      setTimeout(()=>{
-        box.style.display = "none";
-      }, 4000);
-
-      // 🔔 NOTIFICACIÓN
-      if (Notification.permission === "granted") {
-        new Notification("🚨 ALERTA", {
-          body: "Usuario fuera de la zona"
-        });
-      }
-    }
-
-    if(msg === "ACTUALIZADA"){
-      cargarGeocercas();
-    }
+  if(msg === "FUERA"){
+    box.innerText = "🚨 FUERA DE LA ZONA";
+  }else{
+    box.innerText = "✅ DENTRO DE LA ZONA";
   }
-}
 
-// 🔥 LOOP CADA 2s
-setInterval(escucharAlertas, 2000);
+  box.style.display = "block";
+
+  setTimeout(() => {
+    box.style.display = "none";
+  }, 4000);
+
+})
+.subscribe();
 
 </script>
-
 </body>
 </html>
