@@ -40,6 +40,20 @@ button{
 
 <div id="map"></div>
 
+<div id="alertaBox" style="
+ position:absolute;
+ top:20px;
+ right:20px;
+ background:red;
+ color:white;
+ padding:15px;
+ border-radius:10px;
+ display:none;
+ font-weight:bold;
+ z-index:999;">
+🚨 FUERA DE LA ZONA
+</div>
+
 <div class="controls">
   <button onclick="dibujar()">✏️ Dibujar</button>
   <button onclick="guardar()">💾 Guardar</button>
@@ -66,18 +80,8 @@ let draw;
 
 map.on("load", () => {
 
-  draw = new MapboxDraw({
-    displayControlsDefault: false
-  });
-
+  draw = new MapboxDraw({ displayControlsDefault: false });
   map.addControl(draw);
-
-  const geo = new mapboxgl.GeolocateControl({
-    trackUserLocation: true
-  });
-
-  map.addControl(geo);
-  setTimeout(() => geo.trigger(), 1000);
 
   cargarGeocercas();
 });
@@ -86,8 +90,15 @@ function dibujar(){
   draw.changeMode("draw_polygon");
 }
 
-function limpiar(){
+async function limpiar(){
+
   draw.deleteAll();
+
+  await supabaseClient.from("geocercas").delete().neq("id",0);
+
+  alert("Eliminado");
+
+  cargarGeocercas();
 }
 
 async function guardar(){
@@ -122,19 +133,34 @@ async function cargarGeocercas(){
     .select("*");
 
   data.forEach(g => {
-
     if (!g.coordenadas) return;
 
     draw.add({
       type:"Feature",
-      geometry:{
-        type:"Polygon",
-        coordinates:g.coordenadas
-      }
+      geometry:{ type:"Polygon", coordinates:g.coordenadas }
     });
-
   });
 }
+
+// 🚨 REALTIME ALERTA
+supabaseClient
+.channel('alertas')
+.on('postgres_changes', {
+  event:'INSERT',
+  schema:'public',
+  table:'alertas'
+}, payload => {
+
+  if(payload.new.mensaje === "FUERA"){
+
+    document.getElementById("alertaBox").style.display = "block";
+
+    const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+    audio.play();
+  }
+
+})
+.subscribe();
 
 </script>
 
