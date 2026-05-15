@@ -63,14 +63,17 @@ button{
 
 <script>
 
+// 🔥 MAPBOX
 mapboxgl.accessToken =
 "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
+// 🔥 SUPABASE
 const supabaseClient = window.supabase.createClient(
   "https://qlyndvihlqiirztnqxim.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
+// 🔥 MAPA
 const map = new mapboxgl.Map({
   container:"map",
   style:"mapbox://styles/mapbox/streets-v12",
@@ -93,7 +96,6 @@ map.on("load", () => {
 
   cargarGeocercas();
   cargarUltimaUbicacion();
-
 });
 
 // 🔥 DIBUJAR
@@ -190,7 +192,7 @@ async function cargarGeocercas(){
   });
 }
 
-// 🔥 UBICACIÓN REAL (ÚLTIMA)
+// 🔥 UBICACIÓN REAL (VALIDADA)
 async function cargarUltimaUbicacion(){
 
   const { data } = await supabaseClient
@@ -203,10 +205,13 @@ async function cargarUltimaUbicacion(){
 
   const ultima = data[0];
 
-  userLocation = [
-    parseFloat(ultima.lon),
-    parseFloat(ultima.lat)
-  ];
+  const lon = parseFloat(ultima.lon);
+  const lat = parseFloat(ultima.lat);
+
+  // 🔥 FILTRO ANTI DATOS MALOS
+  if(isNaN(lon) || isNaN(lat)) return;
+
+  userLocation = [lon, lat];
 
   mostrarMarcador();
   validarGeocerca();
@@ -223,7 +228,7 @@ function mostrarMarcador(){
       .setLngLat(userLocation)
       .addTo(map);
 
-  }else{
+  } else {
     marcadorUsuario.setLngLat(userLocation);
   }
 
@@ -233,7 +238,7 @@ function mostrarMarcador(){
   });
 }
 
-// 🔥 VALIDAR
+// 🔥 VALIDAR GEOCERCA
 async function validarGeocerca(){
 
   if(!userLocation) return;
@@ -260,7 +265,7 @@ async function validarGeocerca(){
   setTimeout(() => box.style.display = "none", 4000);
 }
 
-// 🔥 REALTIME (IMPORTANTE)
+// 🔥 REALTIME (CORRECTO)
 supabaseClient
 .channel("ubicaciones")
 .on("postgres_changes", {
@@ -271,10 +276,13 @@ supabaseClient
 
   const nueva = payload.new;
 
-  userLocation = [
-    parseFloat(nueva.lon),
-    parseFloat(nueva.lat)
-  ];
+  const lon = parseFloat(nueva.lon);
+  const lat = parseFloat(nueva.lat);
+
+  // 🔥 FILTRO CRÍTICO
+  if(isNaN(lon) || isNaN(lat)) return;
+
+  userLocation = [lon, lat];
 
   mostrarMarcador();
   validarGeocerca();
