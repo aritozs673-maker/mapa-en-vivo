@@ -66,9 +66,30 @@ const map = new mapboxgl.Map({
 let draw;
 
 map.on("load", () => {
-  draw = new MapboxDraw({ displayControlsDefault: false });
+
+  draw = new MapboxDraw({
+    displayControlsDefault: false
+  });
+
   map.addControl(draw);
+
   cargarGeocercas();
+
+  // 📍 UBICACIÓN USUARIO
+  const geolocate = new mapboxgl.GeolocateControl({
+    positionOptions: {
+      enableHighAccuracy: true
+    },
+    trackUserLocation: true,
+    showUserHeading: true
+  });
+
+  map.addControl(geolocate);
+
+  setTimeout(() => {
+    geolocate.trigger();
+  }, 1000);
+
 });
 
 function dibujar(){
