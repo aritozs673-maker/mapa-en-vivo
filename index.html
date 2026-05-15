@@ -52,7 +52,7 @@ button{
 <body>
 
 <div id="map"></div>
-<div id="alertaBox">🚨 FUERA DE LA ZONA</div>
+<div id="alertaBox">🚨 ALERTA</div>
 
 <div class="controls">
   <button onclick="dibujar()">✏️ Dibujar</button>
@@ -69,7 +69,6 @@ const supabaseClient = window.supabase.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
-// 🔔 permiso notificaciones
 if ("Notification" in window) {
   Notification.requestPermission();
 }
@@ -109,10 +108,7 @@ async function limpiar(){
 
   draw.deleteAll();
 
-  await supabaseClient
-    .from("geocercas")
-    .delete()
-    .neq("id", 0);
+  await supabaseClient.from("geocercas").delete().neq("id",0);
 
   cargarGeocercas();
 }
@@ -134,20 +130,23 @@ async function guardar(){
     .from("geocercas")
     .insert([{ nombre:"zona", coordenadas: coords }]);
 
+  // 🔥 ALERTA INMEDIATA
+  await supabaseClient
+    .from("alertas")
+    .insert([{ mensaje: "ACTUALIZADA" }]);
+
   draw.deleteAll();
   cargarGeocercas();
 }
 
+// 🔄 cargar
 async function cargarGeocercas(){
 
   draw.deleteAll();
 
-  const { data } = await supabaseClient
-    .from("geocercas")
-    .select("*");
+  const { data } = await supabaseClient.from("geocercas").select("*");
 
   data.forEach(g => {
-
     if (!g.coordenadas) return;
 
     draw.add({
@@ -157,38 +156,36 @@ async function cargarGeocercas(){
         coordinates:g.coordenadas
       }
     });
-
   });
 }
 
-// 🚨 REALTIME ALERTA
+// 🚨 REALTIME
 supabaseClient
-.channel('alertas')
-.on('postgres_changes', {
-  event:'INSERT',
-  schema:'public',
-  table:'alertas'
+.channel("alertas")
+.on("postgres_changes", {
+  event:"INSERT",
+  schema:"public",
+  table:"alertas"
 }, payload => {
 
-  if(payload.new.mensaje === "FUERA"){
+  const msg = payload.new.mensaje;
 
-    const box = document.getElementById("alertaBox");
-    box.style.display = "block";
+  const box = document.getElementById("alertaBox");
+  box.style.display = "block";
 
-    setTimeout(() => {
-      box.style.display = "none";
-    }, 5000);
+  if(msg === "ACTUALIZADA"){
+    box.innerText = "📍 Geocerca actualizada";
+  }
 
-    // 🔔 notificación
-    if (Notification.permission === "granted") {
-      new Notification("🚨 ALERTA", {
-        body: "El usuario salió de la zona"
-      });
-    }
+  if(msg === "FUERA"){
+    box.innerText = "🚨 Usuario fuera";
+  }
 
-    // 🔊 sonido
-    const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
-    audio.play();
+  setTimeout(()=> box.style.display="none", 4000);
+
+  // 🔔 notificación
+  if (Notification.permission === "granted") {
+    new Notification(box.innerText);
   }
 
 })
