@@ -69,6 +69,11 @@ button{
 
 <script>
 
+// 🔔 PEDIR PERMISO NOTIFICACIONES
+if ("Notification" in window) {
+  Notification.requestPermission();
+}
+
 // 🔥 MAPBOX
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
@@ -99,7 +104,6 @@ map.on("load", () => {
 
   map.addControl(draw);
 
-  // 📍 UBICACIÓN
   const geo = new mapboxgl.GeolocateControl({
     trackUserLocation: true,
     showUserHeading: true
@@ -122,18 +126,15 @@ async function limpiar(){
 
   draw.deleteAll();
 
-  await supabaseClient
-    .from("geocercas")
-    .delete()
-    .neq("id",0);
+  await supabaseClient.from("geocercas").delete().neq("id",0);
 
-  // 🔥 AVISAR A LA APP
-  await supabaseClient
-    .from("alertas")
-    .insert([{ mensaje:"ACTUALIZADA" }]);
+  await supabaseClient.from("alertas").insert([
+    { mensaje:"ACTUALIZADA" }
+  ]);
 
   cargarGeocercas();
 }
+
 async function guardar(){
 
   const data = draw.getAll();
@@ -147,14 +148,13 @@ async function guardar(){
 
   await supabaseClient.from("geocercas").delete().neq("id",0);
 
-  await supabaseClient
-    .from("geocercas")
-    .insert([{ nombre:"zona", coordenadas: coords }]);
+  await supabaseClient.from("geocercas").insert([
+    { nombre:"zona", coordenadas: coords }
+  ]);
 
-  // 🔥 AVISAR A LA APP
-  await supabaseClient
-    .from("alertas")
-    .insert([{ mensaje:"ACTUALIZADA" }]);
+  await supabaseClient.from("alertas").insert([
+    { mensaje:"ACTUALIZADA" }
+  ]);
 
   draw.deleteAll();
   cargarGeocercas();
@@ -187,32 +187,52 @@ async function cargarGeocercas(){
 }
 
 // =========================
-// 🚨 ALERTA TIEMPO REAL
+// 🚨 ALERTA (FIX REAL)
 // =========================
-supabaseClient
-.channel("alertas")
-.on("postgres_changes", {
-  event: "INSERT",
-  schema: "public",
-  table: "alertas"
-}, payload => {
+let ultimoMensaje = "";
 
-  console.log("ALERTA:", payload);
+async function escucharAlertas(){
 
-  const msg = payload.new.mensaje;
+  const { data } = await supabaseClient
+    .from("alertas")
+    .select("*");
 
-  if(msg === "FUERA" || msg === "ACTUALIZADA"){
+  if(!data || data.length === 0) return;
 
-    const box = document.getElementById("alertaBox");
-    box.style.display = "block";
+  const ultimo = data[data.length - 1];
+  const msg = ultimo.mensaje;
 
-    setTimeout(() => {
-      box.style.display = "none";
-    }, 4000);
+  if(msg !== ultimoMensaje){
+
+    ultimoMensaje = msg;
+
+    console.log("🚨 ALERTA:", msg);
+
+    if(msg === "FUERA"){
+
+      const box = document.getElementById("alertaBox");
+      box.style.display = "block";
+
+      setTimeout(()=>{
+        box.style.display = "none";
+      }, 4000);
+
+      // 🔔 NOTIFICACIÓN
+      if (Notification.permission === "granted") {
+        new Notification("🚨 ALERTA", {
+          body: "Usuario fuera de la zona"
+        });
+      }
+    }
+
+    if(msg === "ACTUALIZADA"){
+      cargarGeocercas();
+    }
   }
+}
 
-})
-.subscribe();
+// 🔥 LOOP CADA 2s
+setInterval(escucharAlertas, 2000);
 
 </script>
 
