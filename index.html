@@ -13,40 +13,48 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-html, body { margin:0; height:100%; }
+html, body {
+  margin:0;
+  height:100%;
+}
 
-#map { position:absolute; top:0; bottom:0; width:100%; }
+#map{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:100%;
+}
 
 .controls{
- position:absolute;
- top:15px;
- left:15px;
- z-index:10;
- display:flex;
- flex-direction:column;
+  position:absolute;
+  top:15px;
+  left:15px;
+  z-index:10;
+  display:flex;
+  flex-direction:column;
 }
 
 button{
- background:#7b1e3a;
- color:white;
- border:none;
- padding:10px;
- border-radius:10px;
- margin:5px;
- cursor:pointer;
+  background:#7b1e3a;
+  color:white;
+  border:none;
+  padding:10px;
+  border-radius:10px;
+  margin:5px;
+  cursor:pointer;
 }
 
 #alertaBox{
- position:absolute;
- top:20px;
- right:20px;
- background:red;
- color:white;
- padding:15px;
- border-radius:10px;
- display:none;
- font-weight:bold;
- z-index:999;
+  position:absolute;
+  top:20px;
+  right:20px;
+  background:red;
+  color:white;
+  padding:15px;
+  border-radius:10px;
+  display:none;
+  font-weight:bold;
+  z-index:999;
 }
 </style>
 </head>
@@ -80,25 +88,18 @@ const map = new mapboxgl.Map({
 
 let draw;
 let userLocation = null;
+let marcadorUsuario = null;
 
 map.on("load", () => {
 
-  draw = new MapboxDraw({ displayControlsDefault: false });
+  draw = new MapboxDraw({
+    displayControlsDefault:false
+  });
+
   map.addControl(draw);
 
-  const geo = new mapboxgl.GeolocateControl({
-    trackUserLocation: true,
-    showUserHeading: true
-  });
-
-  geo.on("geolocate", e => {
-    userLocation = [e.coords.longitude, e.coords.latitude];
-  });
-
-  map.addControl(geo);
-  setTimeout(() => geo.trigger(), 1000);
-
   cargarGeocercas();
+  cargarUltimaUbicacion();
 });
 
 function dibujar(){
@@ -106,30 +107,38 @@ function dibujar(){
 }
 
 async function limpiar(){
+
   draw.deleteAll();
 
-  await supabaseClient.from("geocercas").delete().neq("id",0);
-  await supabaseClient.from("alertas").insert([{ mensaje:"ACTUALIZADA" }]);
+  await supabaseClient
+    .from("geocercas")
+    .delete()
+    .neq("id",0);
 
   cargarGeocercas();
 }
 
-// 🔥 FUNCIÓN PARA SABER SI ESTÁ DENTRO
+// 🔥 VALIDAR PUNTO EN POLÍGONO
 function dentroPoligono(punto, poligono){
 
-  let x = punto[0], y = punto[1];
+  let x = punto[0];
+  let y = punto[1];
+
   let inside = false;
 
-  for (let i=0, j=poligono.length-1; i<poligono.length; j=i++) {
+  for(let i=0, j=poligono.length-1; i<poligono.length; j=i++){
 
-    let xi = poligono[i][0], yi = poligono[i][1];
-    let xj = poligono[j][0], yj = poligono[j][1];
+    let xi = poligono[i][0];
+    let yi = poligono[i][1];
+
+    let xj = poligono[j][0];
+    let yj = poligono[j][1];
 
     let intersect =
       ((yi > y) != (yj > y)) &&
-      (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
+      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
 
-    if (intersect) inside = !inside;
+    if(intersect) inside = !inside;
   }
 
   return inside;
@@ -139,34 +148,29 @@ async function guardar(){
 
   const data = draw.getAll();
 
-  if (!data.features.length){
+  if(!data.features.length){
     alert("Dibuja primero");
     return;
   }
 
   const coords = data.features[0].geometry.coordinates;
 
-  await supabaseClient.from("geocercas").delete().neq("id",0);
+  await supabaseClient
+    .from("geocercas")
+    .delete()
+    .neq("id",0);
 
   await supabaseClient
     .from("geocercas")
-    .insert([{ nombre:"zona", coordenadas: coords }]);
+    .insert([{
+      nombre:"zona",
+      coordenadas: coords
+    }]);
 
-  // 🔥 VALIDAR SI ESTÁ FUERA
-  if(userLocation){
-
-    const dentro = dentroPoligono(userLocation, coords[0]);
-
-    if(!dentro){
-      await supabaseClient.from("alertas")
-        .insert([{ mensaje:"FUERA" }]);
-    }else{
-      await supabaseClient.from("alertas")
-        .insert([{ mensaje:"DENTRO" }]);
-    }
-  }
+  validarGeocerca();
 
   draw.deleteAll();
+
   cargarGeocercas();
 }
 
@@ -174,7 +178,9 @@ async function cargarGeocercas(){
 
   draw.deleteAll();
 
-  const { data } = await supabaseClient.from("geocercas").select("*");
+  const { data } = await supabaseClient
+    .from("geocercas")
+    .select("*");
 
   data.forEach(g => {
 
@@ -189,23 +195,77 @@ async function cargarGeocercas(){
   });
 }
 
-// 🚨 REALTIME
-supabaseClient
-.channel("alertas")
-.on("postgres_changes", {
-  event:"INSERT",
-  schema:"public",
-  table:"alertas"
-}, payload => {
+// 🔥 CARGAR ÚLTIMA UBICACIÓN
+async function cargarUltimaUbicacion(){
 
-  const msg = payload.new.mensaje;
+  const { data } = await supabaseClient
+    .from("ubicaciones")
+    .select("*")
+    .order("id", { ascending:false })
+    .limit(1);
+
+  if(!data.length) return;
+
+  const ultima = data[0];
+
+  userLocation = [ultima.lng, ultima.lat];
+
+  mostrarMarcador();
+
+  validarGeocerca();
+}
+
+// 🔥 MOSTRAR MARCADOR
+function mostrarMarcador(){
+
+  if(!userLocation) return;
+
+  if(!marcadorUsuario){
+
+    marcadorUsuario = new mapboxgl.Marker({
+      color:"blue"
+    })
+    .setLngLat(userLocation)
+    .addTo(map);
+
+  }else{
+
+    marcadorUsuario.setLngLat(userLocation);
+
+  }
+
+  map.flyTo({
+    center:userLocation,
+    zoom:16
+  });
+}
+
+// 🔥 VALIDAR GEOCERCA
+async function validarGeocerca(){
+
+  if(!userLocation) return;
+
+  const { data } = await supabaseClient
+    .from("geocercas")
+    .select("*");
+
+  if(!data.length) return;
+
+  const coords = data[0].coordenadas[0];
+
+  const dentro = dentroPoligono(userLocation, coords);
 
   const box = document.getElementById("alertaBox");
 
-  if(msg === "FUERA"){
-    box.innerText = "🚨 FUERA DE LA ZONA";
-  }else{
+  if(dentro){
+
     box.innerText = "✅ DENTRO DE LA ZONA";
+    box.style.background = "green";
+
+  }else{
+
+    box.innerText = "🚨 FUERA DE LA ZONA";
+    box.style.background = "red";
   }
 
   box.style.display = "block";
@@ -213,8 +273,28 @@ supabaseClient
   setTimeout(() => {
     box.style.display = "none";
   }, 4000);
+}
+
+// 🔥 REALTIME UBICACIONES
+supabaseClient
+.channel("ubicaciones")
+
+.on("postgres_changes", {
+  event:"INSERT",
+  schema:"public",
+  table:"ubicaciones"
+}, payload => {
+
+  const nueva = payload.new;
+
+  userLocation = [nueva.lng, nueva.lat];
+
+  mostrarMarcador();
+
+  validarGeocerca();
 
 })
+
 .subscribe();
 
 </script>
