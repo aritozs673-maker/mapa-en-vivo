@@ -13,8 +13,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-html, body { margin:0; height:100%; }
-#map { position:absolute; top:0; bottom:0; width:100%; }
+html, body{ margin:0; height:100%; }
+#map{ position:absolute; top:0; bottom:0; width:100%; }
 
 .controls{
   position:absolute;
@@ -32,7 +32,6 @@ button{
   padding:10px;
   border-radius:10px;
   margin:5px;
-  cursor:pointer;
 }
 
 #alertaBox{
@@ -63,16 +62,14 @@ button{
 
 <script>
 
-// 🔥 MAPBOX
-mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
+mapboxgl.accessToken =
+"pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
-// 🔥 SUPABASE
 const supabaseClient = supabase.createClient(
 "https://qlyndvihlqiirztnqxim.supabase.co",
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
-// 🔥 MAPA
 const map = new mapboxgl.Map({
   container:"map",
   style:"mapbox://styles/mapbox/streets-v12",
@@ -83,27 +80,26 @@ const map = new mapboxgl.Map({
 let draw;
 let userLocation = null;
 let marker = null;
-let ultimaEstado = null;
 
-// =========================
-// INIT
-// =========================
+// 🔥 LOAD
 map.on("load", () => {
 
   draw = new MapboxDraw({ displayControlsDefault:false });
   map.addControl(draw);
 
-  cargarGeocercas();
-  cargarUltimaUbicacion();
+  cargarGeocerca();
 });
 
-// =========================
-// BOTONES
-// =========================
+// =====================
+// DIBUJAR
+// =====================
 function dibujar(){
   draw.changeMode("draw_polygon");
 }
 
+// =====================
+// LIMPIAR
+// =====================
 async function limpiar(){
 
   draw.deleteAll();
@@ -113,9 +109,12 @@ async function limpiar(){
     .delete()
     .neq("id",0);
 
-  cargarGeocercas();
+  removerCapa();
 }
 
+// =====================
+// GUARDAR
+// =====================
 async function guardar(){
 
   const data = draw.getAll();
@@ -134,88 +133,70 @@ async function guardar(){
     .insert([{ nombre:"zona", coordenadas:coords }]);
 
   draw.deleteAll();
-  cargarGeocercas();
+
+  cargarGeocerca();
 }
 
-// =========================
-// GEO
-// =========================
-async function cargarGeocercas(){
+// =====================
+// 🔥 DIBUJAR REAL (FIX)
+// =====================
+async function cargarGeocerca(){
 
-  draw.deleteAll();
+  removerCapa();
 
   const { data } = await supabaseClient
     .from("geocercas")
     .select("*");
 
-  data.forEach(g => {
-    draw.add({
+  if(!data.length) return;
+
+  const coords = data[0].coordenadas;
+
+  map.addSource("geo", {
+    type:"geojson",
+    data:{
       type:"Feature",
-      geometry:{ type:"Polygon", coordinates:g.coordenadas }
-    });
+      geometry:{
+        type:"Polygon",
+        coordinates: coords
+      }
+    }
+  });
+
+  map.addLayer({
+    id:"geo-fill",
+    type:"fill",
+    source:"geo",
+    paint:{
+      "fill-color":"red",
+      "fill-opacity":0.4
+    }
+  });
+
+  map.addLayer({
+    id:"geo-line",
+    type:"line",
+    source:"geo",
+    paint:{
+      "line-color":"red",
+      "line-width":3
+    }
   });
 }
 
-// =========================
-// UBICACION DESDE APP (FIX CLAVE)
-// =========================
-async function cargarUltimaUbicacion(){
+// 🔥 BORRAR CAPA
+function removerCapa(){
 
-  const { data } = await supabaseClient
-    .from("ubicaciones")
-    .select("*")
-    .order("id", { ascending:false })
-    .limit(1);
-
-  if(!data.length) return;
-
-  actualizarUbicacion(data[0]);
-}
-
-// =========================
-// REALTIME (🔥 IMPORTANTE)
-// =========================
-supabaseClient
-.channel("ubicaciones")
-.on("postgres_changes", {
-  event:"INSERT",
-  schema:"public",
-  table:"ubicaciones"
-}, payload => {
-
-  actualizarUbicacion(payload.new);
-
-})
-.subscribe();
-
-// =========================
-// ACTUALIZAR UBICACION
-// =========================
-function actualizarUbicacion(n){
-
-  const lat = parseFloat(n.lat);
-  const lon = parseFloat(n.lon);
-
-  if(!isFinite(lat) || !isFinite(lon)) return;
-
-  userLocation = [lon, lat];
-
-  if(!marker){
-    marker = new mapboxgl.Marker({color:"blue"})
-      .setLngLat(userLocation)
-      .addTo(map);
-  } else {
-    marker.setLngLat(userLocation);
+  if(map.getLayer("geo-fill")){
+    map.removeLayer("geo-fill");
+    map.removeLayer("geo-line");
+    map.removeSource("geo");
   }
-
-  map.flyTo({ center:userLocation, zoom:16 });
-
-  validarGeocerca();
 }
 
-// =========================
-// POLIGONO
-// =========================
+// =====================
+// POLÍGONO
+// =====================
 function dentroPoligono(punto, poligono){
 
   let x = punto[0], y = punto[1];
@@ -236,12 +217,33 @@ function dentroPoligono(punto, poligono){
   return inside;
 }
 
-// =========================
-// VALIDAR + ALERTA REAL
-// =========================
-async function validarGeocerca(){
+// =====================
+// 🔥 UBICACIÓN REALTIME
+// =====================
+supabaseClient
+.channel("ubicaciones")
+.on("postgres_changes", {
+  event:"INSERT",
+  schema:"public",
+  table:"ubicaciones"
+}, async payload => {
 
-  if(!userLocation) return;
+  const lat = parseFloat(payload.new.lat);
+  const lon = parseFloat(payload.new.lon);
+
+  if(!isFinite(lat) || !isFinite(lon)) return;
+
+  userLocation = [lon, lat];
+
+  if(!marker){
+    marker = new mapboxgl.Marker({color:"blue"})
+      .setLngLat(userLocation)
+      .addTo(map);
+  } else {
+    marker.setLngLat(userLocation);
+  }
+
+  map.flyTo({ center:userLocation, zoom:16 });
 
   const { data } = await supabaseClient
     .from("geocercas")
@@ -253,26 +255,16 @@ async function validarGeocerca(){
 
   const dentro = dentroPoligono(userLocation, coords);
 
-  // 🔥 SOLO CUANDO CAMBIA ESTADO
-  if(ultimaEstado === null){
-    ultimaEstado = dentro;
-    return;
-  }
-
-  if(!dentro && ultimaEstado === true){
+  if(!dentro){
     mostrarAlerta("🚨 FUERA DE LA ZONA");
   }
 
-  if(dentro && ultimaEstado === false){
-    mostrarAlerta("✅ VOLVIÓ A LA ZONA");
-  }
+})
+.subscribe();
 
-  ultimaEstado = dentro;
-}
-
-// =========================
-// ALERTA UI
-// =========================
+// =====================
+// ALERTA
+// =====================
 function mostrarAlerta(msg){
 
   const box = document.getElementById("alertaBox");
