@@ -32,6 +32,7 @@ button{
   padding:10px;
   border-radius:10px;
   margin:5px;
+  cursor:pointer;
 }
 
 #alertaBox{
@@ -62,6 +63,9 @@ button{
 
 <script>
 
+// =====================
+// 🔑 KEYS
+// =====================
 mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
 const supabaseClient = supabase.createClient(
@@ -69,6 +73,9 @@ const supabaseClient = supabase.createClient(
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFseW5kdmlobHFpaXJ6dG5xeGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0OTUsImV4cCI6MjA4ODA3MzQ5NX0.t06Jz01XxqgSiOTnCNBi4_b79o_jz8cfi8-BfTQM_20"
 );
 
+// =====================
+// MAPA
+// =====================
 const map = new mapboxgl.Map({
   container:"map",
   style:"mapbox://styles/mapbox/streets-v12",
@@ -79,14 +86,12 @@ const map = new mapboxgl.Map({
 let draw;
 let marker = null;
 let userLocation = null;
-let estadoAnterior = null; // 🔥 CONTROL ALERTA
+let estadoAnterior = null;
 
 // =====================
 map.on("load", () => {
-
   draw = new MapboxDraw({ displayControlsDefault:false });
   map.addControl(draw);
-
   cargarGeocerca();
 });
 
@@ -135,13 +140,15 @@ async function guardar(){
 
   const coords = data.features[0].geometry.coordinates;
 
-  dibujarGeocerca(coords); // 🔥 instantáneo
+  // 🔥 dibuja instantáneo
+  dibujarGeocerca(coords);
 
   await supabaseClient.from("geocercas").delete().neq("id",0);
 
   await supabaseClient.from("geocercas")
     .insert([{ nombre:"zona", coordenadas:coords }]);
 
+  // 🔥 NOTIFICAR APP
   await supabaseClient.from("alertas")
     .insert([{ mensaje:"ACTUALIZADA" }]);
 
@@ -157,8 +164,9 @@ async function limpiar(){
 
   removerCapa();
 
+  // 🔥 NOTIFICAR APP
   await supabaseClient.from("alertas")
-    .insert([{ mensaje:"LIMPIADA" }]); // 🔥 FIX
+    .insert([{ mensaje:"LIMPIADA" }]);
 }
 
 // =====================
@@ -175,7 +183,6 @@ async function cargarGeocerca(){
 
 // =====================
 function removerCapa(){
-
   if(map.getLayer("geo-fill")) map.removeLayer("geo-fill");
   if(map.getLayer("geo-line")) map.removeLayer("geo-line");
   if(map.getSource("geo")) map.removeSource("geo");
@@ -203,6 +210,8 @@ function dentroPoligono(punto, poligono){
 }
 
 // =====================
+// 🔥 UBICACION EN TIEMPO REAL
+// =====================
 supabaseClient
 .channel("ubicaciones")
 .on("postgres_changes", {
@@ -215,6 +224,8 @@ supabaseClient
   const lon = parseFloat(payload.new.lon);
 
   if(!isFinite(lat) || !isFinite(lon)) return;
+
+  console.log("UBICACION:", lat, lon);
 
   userLocation = [lon, lat];
 
@@ -238,18 +249,22 @@ supabaseClient
 
   const dentro = dentroPoligono(userLocation, coords);
 
-  // 🔥 SOLO CUANDO CAMBIA
-  if(estadoAnterior === null){
-    estadoAnterior = dentro;
-    return;
-  }
+  console.log("DENTRO:", dentro);
 
-  if(!dentro && estadoAnterior === true){
+  // 🔥 SIEMPRE ALERTA SI ESTÁ FUERA
+  if(!dentro){
 
     mostrarAlerta("🚨 FUERA DE LA ZONA");
 
-    await supabaseClient.from("alertas")
-      .insert([{ mensaje:"FUERA" }]);
+    if(estadoAnterior !== false){
+      await supabaseClient.from("alertas")
+        .insert([{ mensaje:"FUERA" }]);
+    }
+  }
+
+  // 🔥 OPCIONAL: cuando vuelve dentro
+  if(dentro && estadoAnterior === false){
+    mostrarAlerta("✅ DENTRO DE LA ZONA");
   }
 
   estadoAnterior = dentro;
