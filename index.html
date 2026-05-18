@@ -126,17 +126,22 @@ async function guardar(){
 
   const coords = data.features[0].geometry.coordinates;
 
+  // 🔥 borrar anterior
   await supabaseClient.from("geocercas").delete().neq("id",0);
 
+  // 🔥 guardar nueva
   await supabaseClient
     .from("geocercas")
     .insert([{ nombre:"zona", coordenadas:coords }]);
 
+  // 🔥 LIMPIAR draw
   draw.deleteAll();
 
-  cargarGeocerca();
+  // 🔥 FORZAR REDIBUJO (CLAVE)
+  setTimeout(() => {
+    cargarGeocerca();
+  }, 500);
 }
-
 // =====================
 // 🔥 DIBUJAR REAL (FIX)
 // =====================
@@ -144,13 +149,20 @@ async function cargarGeocerca(){
 
   removerCapa();
 
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("geocercas")
     .select("*");
 
-  if(!data.length) return;
+  if(error){
+    console.log("ERROR GEO:", error);
+    return;
+  }
+
+  if(!data || !data.length) return;
 
   const coords = data[0].coordenadas;
+
+  if(!coords) return;
 
   map.addSource("geo", {
     type:"geojson",
@@ -189,7 +201,13 @@ function removerCapa(){
 
   if(map.getLayer("geo-fill")){
     map.removeLayer("geo-fill");
+  }
+
+  if(map.getLayer("geo-line")){
     map.removeLayer("geo-line");
+  }
+
+  if(map.getSource("geo")){
     map.removeSource("geo");
   }
 }
