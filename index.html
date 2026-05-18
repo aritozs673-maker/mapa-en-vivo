@@ -62,8 +62,7 @@ button{
 
 <script>
 
-mapboxgl.accessToken =
-"pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
+mapboxgl.accessToken = "pk.eyJ1IjoiYXJpMjAzMjU5MCIsImEiOiJjbW01bWVxMnQwOGY0MnFvbTkxenYyejJvIn0.3ew4xglzFTB6e8p-B6QoRA";
 
 const supabaseClient = supabase.createClient(
 "https://qlyndvihlqiirztnqxim.supabase.co",
@@ -78,11 +77,10 @@ const map = new mapboxgl.Map({
 });
 
 let draw;
-let userLocation = null;
 let marker = null;
+let userLocation = null;
+let estadoAnterior = null; // 🔥 CONTROL ALERTA
 
-// =====================
-// LOAD
 // =====================
 map.on("load", () => {
 
@@ -93,13 +91,12 @@ map.on("load", () => {
 });
 
 // =====================
-// DIBUJAR
-// =====================
 function dibujar(){
   draw.changeMode("draw_polygon");
 }
 
-function dibujarGeocercaDirecta(coords){
+// =====================
+function dibujarGeocerca(coords){
 
   removerCapa();
 
@@ -107,10 +104,7 @@ function dibujarGeocercaDirecta(coords){
     type:"geojson",
     data:{
       type:"Feature",
-      geometry:{
-        type:"Polygon",
-        coordinates: coords
-      }
+      geometry:{ type:"Polygon", coordinates: coords }
     }
   });
 
@@ -130,23 +124,6 @@ function dibujarGeocercaDirecta(coords){
 }
 
 // =====================
-// LIMPIAR
-// =====================
-async function limpiar(){
-
-  draw.deleteAll();
-
-  await supabaseClient.from("geocercas").delete().neq("id",0);
-
-  removerCapa();
-
-  await supabaseClient.from("alertas")
-    .insert([{ mensaje:"ACTUALIZADA" }]);
-}
-
-// =====================
-// GUARDAR
-// =====================
 async function guardar(){
 
   const data = draw.getAll();
@@ -158,8 +135,7 @@ async function guardar(){
 
   const coords = data.features[0].geometry.coordinates;
 
-  // 🔥 INMEDIATO
-  dibujarGeocercaDirecta(coords);
+  dibujarGeocerca(coords); // 🔥 instantáneo
 
   await supabaseClient.from("geocercas").delete().neq("id",0);
 
@@ -173,11 +149,20 @@ async function guardar(){
 }
 
 // =====================
-// CARGAR GEO
-// =====================
-async function cargarGeocerca(){
+async function limpiar(){
+
+  draw.deleteAll();
+
+  await supabaseClient.from("geocercas").delete().neq("id",0);
 
   removerCapa();
+
+  await supabaseClient.from("alertas")
+    .insert([{ mensaje:"LIMPIADA" }]); // 🔥 FIX
+}
+
+// =====================
+async function cargarGeocerca(){
 
   const { data } = await supabaseClient
     .from("geocercas")
@@ -185,11 +170,9 @@ async function cargarGeocerca(){
 
   if(!data || !data.length) return;
 
-  dibujarGeocercaDirecta(data[0].coordenadas);
+  dibujarGeocerca(data[0].coordenadas);
 }
 
-// =====================
-// BORRAR CAPA
 // =====================
 function removerCapa(){
 
@@ -199,14 +182,13 @@ function removerCapa(){
 }
 
 // =====================
-// POLIGONO
-// =====================
 function dentroPoligono(punto, poligono){
 
   let x = punto[0], y = punto[1];
   let inside = false;
 
   for(let i=0, j=poligono.length-1; i<poligono.length; j=i++){
+
     let xi = poligono[i][0], yi = poligono[i][1];
     let xj = poligono[j][0], yj = poligono[j][1];
 
@@ -220,8 +202,6 @@ function dentroPoligono(punto, poligono){
   return inside;
 }
 
-// =====================
-// 🔥 UBICACION EN TIEMPO REAL
 // =====================
 supabaseClient
 .channel("ubicaciones")
@@ -258,7 +238,13 @@ supabaseClient
 
   const dentro = dentroPoligono(userLocation, coords);
 
-  if(!dentro){
+  // 🔥 SOLO CUANDO CAMBIA
+  if(estadoAnterior === null){
+    estadoAnterior = dentro;
+    return;
+  }
+
+  if(!dentro && estadoAnterior === true){
 
     mostrarAlerta("🚨 FUERA DE LA ZONA");
 
@@ -266,11 +252,11 @@ supabaseClient
       .insert([{ mensaje:"FUERA" }]);
   }
 
+  estadoAnterior = dentro;
+
 })
 .subscribe();
 
-// =====================
-// ALERTA
 // =====================
 function mostrarAlerta(msg){
 
