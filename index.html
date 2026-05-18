@@ -96,7 +96,41 @@ map.on("load", () => {
 function dibujar(){
   draw.changeMode("draw_polygon");
 }
+function dibujarGeocercaDirecta(coords){
 
+  removerCapa();
+
+  map.addSource("geo", {
+    type:"geojson",
+    data:{
+      type:"Feature",
+      geometry:{
+        type:"Polygon",
+        coordinates: coords
+      }
+    }
+  });
+
+  map.addLayer({
+    id:"geo-fill",
+    type:"fill",
+    source:"geo",
+    paint:{
+      "fill-color":"red",
+      "fill-opacity":0.4
+    }
+  });
+
+  map.addLayer({
+    id:"geo-line",
+    type:"line",
+    source:"geo",
+    paint:{
+      "line-color":"red",
+      "line-width":3
+    }
+  });
+}
 // =====================
 // LIMPIAR
 // =====================
@@ -126,21 +160,15 @@ async function guardar(){
 
   const coords = data.features[0].geometry.coordinates;
 
-  // 🔥 borrar anterior
-  await supabaseClient.from("geocercas").delete().neq("id",0);
+  // 🔥 DIBUJAR INMEDIATO (ANTES DE GUARDAR)
+  dibujarGeocercaDirecta(coords);
 
-  // 🔥 guardar nueva
-  await supabaseClient
-    .from("geocercas")
+  // 🔥 GUARDAR EN BACKGROUND (sin esperar)
+  supabaseClient.from("geocercas").delete().neq("id",0);
+  supabaseClient.from("geocercas")
     .insert([{ nombre:"zona", coordenadas:coords }]);
 
-  // 🔥 LIMPIAR draw
   draw.deleteAll();
-
-  // 🔥 FORZAR REDIBUJO (CLAVE)
-  setTimeout(() => {
-    cargarGeocerca();
-  }, 500);
 }
 // =====================
 // 🔥 DIBUJAR REAL (FIX)
